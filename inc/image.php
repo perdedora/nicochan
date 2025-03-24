@@ -7,7 +7,11 @@
 defined('TINYBOARD') or exit;
 
 class Image {
-	public $src, $format, $image, $size;
+	public string $src;
+	public string|false $format;
+	public ImageBase $image;
+	public object $size;
+
 	public function __construct($src, $format = false, $size = false) {
 		global $config;
 
@@ -58,16 +62,12 @@ class Image {
 				break;
 			case 'convert+gifsicle':
 				$classname = 'ImageConvert';
-				$gifsicle = true;
 				break;
 			case 'gm':
 				$classname = 'ImageConvert';
-				$gm = true;
 				break;
 			case 'gm+gifsicle':
 				$classname = 'ImageConvert';
-				$gm = true;
-				$gifsicle = true;
 				break;
 			default:
 				$classname = 'Image' . strtoupper($extension);
@@ -116,6 +116,13 @@ class Image {
 }
 
 class ImageGD {
+	public int $width = 0;
+	public int $height = 0;
+	public int $original_width = 0;
+	public int $original_height = 0;
+	public mixed $original = null;
+	public mixed $image = null;
+
 	public function GD_create() {
 		$this->image = imagecreatetruecolor($this->width, $this->height);
 	}
@@ -129,7 +136,9 @@ class ImageGD {
 }
 
 class ImageBase extends ImageGD {
-	public $image, $src, $original, $original_width, $original_height, $width, $height;
+	public string $src = '';
+	public string|false $format = false;
+
 	public function valid() {
 		return (bool)$this->image;
 	}
@@ -229,7 +238,6 @@ class ImageImagick extends ImageBase {
 				$delay += $frame->getImageDelay();
 
 				if (in_array($i, $keep_frames)) {
-					// $frame->scaleImage($this->width, $this->height, false);
 					$frame->sampleImage($this->width, $this->height);
 					$frame->setImagePage($this->width, $this->height, 0, 0);
 					$frame->setImageDelay($delay);
@@ -248,7 +256,9 @@ class ImageImagick extends ImageBase {
 
 
 class ImageConvert extends ImageBase {
-	public $width, $height, $temp, $gm = false, $gifsicle = false;
+	public ?string $temp = null;
+	public bool $gm = false;
+	public bool $gifsicle = false;
 
 	public function init() {
 		global $config;
@@ -259,9 +269,8 @@ class ImageConvert extends ImageBase {
 		$this->temp = false;
 	}
 	public function get_size($src, $try_gd_first = true) {
-		if ($try_gd_first) {
-			if ($size = @getimagesize($src))
-				return $size;
+		if ($try_gd_first && ($size = @getimagesize($src))) {
+			return $size;
 		}
 		$size = shell_exec_error(($this->gm ? 'gm ' : '') . 'identify -format "%w %h" ' . escapeshellarg($src . '[0]'));
 		if (preg_match('/^(\d+) (\d+)$/', $size, $m))
@@ -330,9 +339,15 @@ class ImageConvert extends ImageBase {
 
 		$frames = (int)$config['thumb_keep_animation_frames'];
 
-		if ($this->format == 'gif' && $this->gifsicle && in_array($config['thumb_ext'], ['', 'gif']) && $config['thumb_keep_animation_frames'] > 1) {
+		if ($this->format == 'gif' && $this->gifsicle 
+			&& in_array($config['thumb_ext'], ['', 'gif']) 
+			&& $config['thumb_keep_animation_frames'] > 1
+		) {
 			$this->resizeAnimatedGif($frames);
-		} elseif ($this->format == 'gif' && !$this->gifsicle && in_array($config['thumb_ext'], ['', 'webp']) && $config['thumb_keep_animation_frames'] > 1) {
+		} elseif ($this->format == 'gif' && !$this->gifsicle 
+			&& in_array($config['thumb_ext'], ['', 'webp']) 
+			&& $config['thumb_keep_animation_frames'] > 1
+		) {
 			$this->convertGifToWebp($frames);
 		} elseif ($this->format == 'webp' && $this->isAnimatedWebp()) {
 			$this->resizeAnimatedWebp($frames);
@@ -369,10 +384,11 @@ class ImageConvert extends ImageBase {
 		$output = [];
 		$return_var = 0;
 
-		$tempFile = $this->temp;
-		$command = sprintf(
-			'convert %s[0-%d] -coalesce -quality 80 -resize %dx%d -size %dx%d -thumbnail %dx%d -loop 0 -auto-orient -define webp:lossless=false -layers Optimize %s',
+		$tempFile = $this->temp . '.webp';
 
+		$command = sprintf(
+			'convert %s[0-%d] -coalesce -quality 80 -resize %dx%d -size %dx%d -thumbnail %dx%d -loop 0 -auto-orient ' .
+			'-define webp:lossless=false -layers Optimize %s',
 			escapeshellarg($this->src),
 			$frames - 1,
 			$this->width, // resize
@@ -386,6 +402,8 @@ class ImageConvert extends ImageBase {
 		exec($command, $output, $return_var);
 
 		$this->checkAndHandleError($return_var, $tempFile, $output, _('Failed to convert GIF to WebP!'));
+
+		rename($tempFile, $this->temp);
 	}
 
 	private function resizeAnimatedWebp(int $frames)
@@ -397,7 +415,8 @@ class ImageConvert extends ImageBase {
 
 		// gm is shitty here
 		$command = sprintf(
-			'convert %s[0-%d] -coalesce -quality 80 -resize %dx%d -size %dx%d -thumbnail %dx%d -loop 0 -auto-orient -layers Optimize %s',
+			'convert %s[0-%d] -coalesce -quality 80 -resize %dx%d -size %dx%d -thumbnail %dx%d -loop 0 -auto-orient ' .
+			'-layers Optimize %s',
 			escapeshellarg($this->src),
 			$frames - 1,
 			$this->width, // resize
@@ -439,7 +458,12 @@ class ImageConvert extends ImageBase {
 		if ($error || !file_exists($this->temp)) {
 			if ($this->shouldTriggerError($error)) {
 				$this->destroy();
-				error(_('Failed to resize image!') . " " . _('Details: ') . nl2br(htmlspecialchars($error)), null, ['convert_error' => $error]);
+				error(
+					_('Failed to resize image!') . " " . 
+					_('Details: ') . nl2br(htmlspecialchars($error)),
+					null,
+					['convert_error' => $error]
+				);
 			}
 			if (!file_exists($this->temp)) {
 				$this->destroy();
@@ -452,7 +476,11 @@ class ImageConvert extends ImageBase {
 	{
 		if ($config['convert_manual_orient']) {
 			return ($this->format == 'jpg' || $this->format == 'jpeg') 
-				? str_replace('-auto-orient', ImageConvert::jpeg_exif_orientation($this->src), $config['convert_args']) 
+				? str_replace(
+					'-auto-orient',
+					ImageConvert::jpeg_exif_orientation($this->src),
+					$config['convert_args']
+				) 
 				: str_replace('-auto-orient', '', $config['convert_args']);
 		}
 		return $config['convert_args'];
@@ -477,7 +505,10 @@ class ImageConvert extends ImageBase {
 
 	private function isAnimatedWebp()
 	{
-		$info = shell_exec(sprintf('identify %s', escapeshellarg($this->src)));
+		$info = shell_exec(sprintf(
+			'identify %s',
+			escapeshellarg($this->src)
+		));
 		return preg_match('/\[\d+\] \w/', $info); // check if the output contains multiple frames
 
 	}
@@ -491,7 +522,7 @@ class ImageConvert extends ImageBase {
 		}
 	}
 	// For when -auto-orient doesn't exist (older versions)
-	static public function jpeg_exif_orientation($src, $exif = false) {
+	public static function jpeg_exif_orientation($src, $exif = false) {
 		if (!$exif) {
 			$exif = @exif_read_data($src);
 			if (!isset($exif['Orientation']))
@@ -550,6 +581,8 @@ class ImageConvert extends ImageBase {
 				//         88
 
 				return '-rotate "-90"';
+			default:
+				return '';
 		}
 	}
 }
@@ -683,7 +716,6 @@ class ImageProcessing {
 	}
 
 	public function createWebmThumbnail($file, $op){
-		global $board;
 		require_once 'inc/lib/webm/ffmpeg.php';
 		require_once 'inc/lib/webm/posthandler.php';
 		$file->thumb_path = $this->config['dir']['media'] . $file->file_id . '_t' . '.webp';
@@ -698,6 +730,7 @@ class ImageProcessing {
 
 class Blockhash
 {
+
 	/**
  	* This function compares two binary hashes by calculating the Hamming distance
  	* between them and determining if the number of differing bits is less than the specified threshold.

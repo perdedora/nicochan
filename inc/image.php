@@ -15,21 +15,21 @@ class Image {
 		$this->format = $format;
 
 		switch ($config['thumb_method']) {
-    		case 'imagick':
-        		$classname = 'ImageImagick';
-        		break;
-    		case 'convert':
-    		case 'convert+gifsicle':
-    		case 'gm':
-    		case 'gm+gifsicle':
-        		$classname = 'ImageConvert';
-        		break;
-    		default:
-        		$classname = 'Image' . strtoupper($this->format);
-        		if (!class_exists($classname)) {
-            		error(_('Unsupported file format: ') . $this->format);
-        		}
-        		break;
+			case 'imagick':
+				$classname = 'ImageImagick';
+				break;
+			case 'convert':
+			case 'convert+gifsicle':
+			case 'gm':
+			case 'gm+gifsicle':
+				$classname = 'ImageConvert';
+				break;
+			default:
+				$classname = 'Image' . strtoupper($this->format);
+				if (!class_exists($classname)) {
+					error(_('Unsupported file format: ') . $this->format);
+				}
+				break;
 		}
 
 		$this->image = new $classname($this, $size);
@@ -50,31 +50,31 @@ class Image {
 		global $config;
 
 		switch ($config['thumb_method']) {
-    		case 'imagick':
-        		$classname = 'ImageImagick';
-        		break;
-    		case 'convert':
-        		$classname = 'ImageConvert';
-        		break;
-    		case 'convert+gifsicle':
-        		$classname = 'ImageConvert';
-        		$gifsicle = true;
-        		break;
-    		case 'gm':
-        		$classname = 'ImageConvert';
-        		$gm = true;
-        		break;
-    		case 'gm+gifsicle':
-        		$classname = 'ImageConvert';
-        		$gm = true;
-        		$gifsicle = true;
-        		break;
-    		default:
-        		$classname = 'Image' . strtoupper($extension);
-        		if (!class_exists($classname)) {
-            		error(_('Unsupported file format: ') . $extension);
-        		}
-       			break;
+			case 'imagick':
+				$classname = 'ImageImagick';
+				break;
+			case 'convert':
+				$classname = 'ImageConvert';
+				break;
+			case 'convert+gifsicle':
+				$classname = 'ImageConvert';
+				$gifsicle = true;
+				break;
+			case 'gm':
+				$classname = 'ImageConvert';
+				$gm = true;
+				break;
+			case 'gm+gifsicle':
+				$classname = 'ImageConvert';
+				$gm = true;
+				$gifsicle = true;
+				break;
+			default:
+				$classname = 'Image' . strtoupper($extension);
+				if (!class_exists($classname)) {
+					error(_('Unsupported file format: ') . $extension);
+				}
+	   			break;
 		}
 
 
@@ -317,59 +317,59 @@ class ImageConvert extends ImageBase {
 			unlink($this->temp);
 		$this->temp = false;
 	}
-    public function resize()
+	public function resize()
 	{
-        global $config;
+		global $config;
 
-        if ($this->temp) {
-            // remove old
-            $this->destroy();
-        }
+		if ($this->temp) {
+			// remove old
+			$this->destroy();
+		}
 
-        $this->temp = tempnam($config['tmp'], 'convert');
+		$this->temp = tempnam($config['tmp'], 'convert');
 
-        $frames = (int)$config['thumb_keep_animation_frames'];
+		$frames = (int)$config['thumb_keep_animation_frames'];
 
-        if ($this->format == 'gif' && $this->gifsicle && in_array($config['thumb_ext'], ['', 'gif']) && $config['thumb_keep_animation_frames'] > 1) {
+		if ($this->format == 'gif' && $this->gifsicle && in_array($config['thumb_ext'], ['', 'gif']) && $config['thumb_keep_animation_frames'] > 1) {
 			$this->resizeAnimatedGif($frames);
 		} elseif ($this->format == 'gif' && !$this->gifsicle && in_array($config['thumb_ext'], ['', 'webp']) && $config['thumb_keep_animation_frames'] > 1) {
-            $this->convertGifToWebp($frames);
-        } elseif ($this->format == 'webp' && $this->isAnimatedWebp()) {
-            $this->resizeAnimatedWebp($frames);
-        } else {
-            $this->resizeStaticImage($config);
-        }
+			$this->convertGifToWebp($frames);
+		} elseif ($this->format == 'webp' && $this->isAnimatedWebp()) {
+			$this->resizeAnimatedWebp($frames);
+		} else {
+			$this->resizeStaticImage($config);
+		}
 
-        if ($size = $this->get_size($this->temp)) {
-            $this->width = $size[0];
-            $this->height = $size[1];
-        }
-    }
+		if ($size = $this->get_size($this->temp)) {
+			$this->width = $size[0];
+			$this->height = $size[1];
+		}
+	}
 
 	private function resizeAnimatedGif(int $frames)
 	{
-        $output = [];
-        $return_var = 0;
+		$output = [];
+		$return_var = 0;
 
 		$command = sprintf(
-    		'gifsicle -w --unoptimize -O2 --resize %dx%d < %s "#0-%d" -o %s',
-    		$this->width,
-    		$this->height,
-    		escapeshellarg($this->src),
-    		$frames,
-    		escapeshellarg($this->temp)
+			'gifsicle -w --unoptimize -O2 --resize %dx%d < %s "#0-%d" -o %s',
+			$this->width,
+			$this->height,
+			escapeshellarg($this->src),
+			$frames,
+			escapeshellarg($this->temp)
 		);
-        exec($command, $output, $return_var);
+		exec($command, $output, $return_var);
 
 		$this->checkAndHandleError($return_var, $this->temp, $output, _('Failed to resize GIF!'));
 	}
 
-    private function convertGifToWebp(int $frames)
+	private function convertGifToWebp(int $frames)
 	{
-        $output = [];
-        $return_var = 0;
+		$output = [];
+		$return_var = 0;
 
-    	$tempFile = $this->temp;
+		$tempFile = $this->temp;
 		$command = sprintf(
 			'convert %s[0-%d] -coalesce -quality 80 -resize %dx%d -size %dx%d -thumbnail %dx%d -loop 0 -auto-orient -define webp:lossless=false -layers Optimize %s',
 
@@ -383,112 +383,112 @@ class ImageConvert extends ImageBase {
 			$this->height, // thumbnail
 			escapeshellarg($tempFile)
 		);
-        exec($command, $output, $return_var);
+		exec($command, $output, $return_var);
 
 		$this->checkAndHandleError($return_var, $tempFile, $output, _('Failed to convert GIF to WebP!'));
-    }
+	}
 
-    private function resizeAnimatedWebp(int $frames)
+	private function resizeAnimatedWebp(int $frames)
 	{
-    	$output = [];
-    	$return_var = 0;
+		$output = [];
+		$return_var = 0;
 
-    	$tempFile = $this->temp . '.webp';
+		$tempFile = $this->temp . '.webp';
 
 		// gm is shitty here
-    	$command = sprintf(
-        	'convert %s[0-%d] -coalesce -quality 80 -resize %dx%d -size %dx%d -thumbnail %dx%d -loop 0 -auto-orient -layers Optimize %s',
-        	escapeshellarg($this->src),
+		$command = sprintf(
+			'convert %s[0-%d] -coalesce -quality 80 -resize %dx%d -size %dx%d -thumbnail %dx%d -loop 0 -auto-orient -layers Optimize %s',
+			escapeshellarg($this->src),
 			$frames - 1,
-        	$this->width, // resize
-        	$this->height, // resize
-        	$this->width, // size
-        	$this->height, // size
-        	$this->width, // thumbnail
-        	$this->height, // thumbnail
-        	escapeshellarg($tempFile)
-    	);
+			$this->width, // resize
+			$this->height, // resize
+			$this->width, // size
+			$this->height, // size
+			$this->width, // thumbnail
+			$this->height, // thumbnail
+			escapeshellarg($tempFile)
+		);
 
-    	exec($command . ' 2>&1', $output, $return_var);
+		exec($command . ' 2>&1', $output, $return_var);
 
 		$this->checkAndHandleError($return_var, $tempFile, $output, _('Failed to resize animated WebP!'));
 
-    	rename($tempFile, $this->temp);
-    }
+		rename($tempFile, $this->temp);
+	}
 
-    private function resizeStaticImage(array $config)
+	private function resizeStaticImage(array $config)
 	{
-    	$convert_args = $this->getConvertArgs($config); 
+		$convert_args = $this->getConvertArgs($config); 
 
-    	$command = sprintf(
-        	'%sconvert %s',
-        	$this->gm ? 'gm ' : '',
-        	sprintf(
-            	$convert_args,
-            	$this->width,
-            	$this->height,
-            	escapeshellarg($this->src . '[0]'),
-            	$this->width,
-            	$this->height,
-            	escapeshellarg($this->temp)
-        	)
-    	);
+		$command = sprintf(
+			'%sconvert %s',
+			$this->gm ? 'gm ' : '',
+			sprintf(
+				$convert_args,
+				$this->width,
+				$this->height,
+				escapeshellarg($this->src . '[0]'),
+				$this->width,
+				$this->height,
+				escapeshellarg($this->temp)
+			)
+		);
 
-    	$error = shell_exec_error($command);
+		$error = shell_exec_error($command);
 
-    	if ($error || !file_exists($this->temp)) {
-        	if ($this->shouldTriggerError($error)) {
-            	$this->destroy();
-            	error(_('Failed to resize image!') . " " . _('Details: ') . nl2br(htmlspecialchars($error)), null, ['convert_error' => $error]);
-        	}
-        	if (!file_exists($this->temp)) {
-            	$this->destroy();
-            	error(_('Failed to resize image!'), null, $error);
-        	}
-    	}
-    }
+		if ($error || !file_exists($this->temp)) {
+			if ($this->shouldTriggerError($error)) {
+				$this->destroy();
+				error(_('Failed to resize image!') . " " . _('Details: ') . nl2br(htmlspecialchars($error)), null, ['convert_error' => $error]);
+			}
+			if (!file_exists($this->temp)) {
+				$this->destroy();
+				error(_('Failed to resize image!'), null, $error);
+			}
+		}
+	}
 
 	private function getConvertArgs(array $config)
 	{
-    	if ($config['convert_manual_orient']) {
-        	return ($this->format == 'jpg' || $this->format == 'jpeg') 
-            	? str_replace('-auto-orient', ImageConvert::jpeg_exif_orientation($this->src), $config['convert_args']) 
-            	: str_replace('-auto-orient', '', $config['convert_args']);
-    	}
-    	return $config['convert_args'];
+		if ($config['convert_manual_orient']) {
+			return ($this->format == 'jpg' || $this->format == 'jpeg') 
+				? str_replace('-auto-orient', ImageConvert::jpeg_exif_orientation($this->src), $config['convert_args']) 
+				: str_replace('-auto-orient', '', $config['convert_args']);
+		}
+		return $config['convert_args'];
 	}
 
 	private function shouldTriggerError(string $error)
 	{
-    	$ignorableErrors = [
-        	"known incorrect sRGB profile",
-        	"iCCP: Not recognizing known sRGB profile that has been edited",
-        	"cHRM chunk does not match sRGB"
-    	];
+		$ignorableErrors = [
+			"known incorrect sRGB profile",
+			"iCCP: Not recognizing known sRGB profile that has been edited",
+			"cHRM chunk does not match sRGB"
+		];
 
-    	foreach ($ignorableErrors as $ignorableError) {
-        	if (strpos($error, $ignorableError) !== false) {
-            	return false;
-        	}
-    	}
+		foreach ($ignorableErrors as $ignorableError) {
+			if (strpos($error, $ignorableError) !== false) {
+				return false;
+			}
+		}
 
-    	return true;
+		return true;
 	}
 
-    private function isAnimatedWebp()
+	private function isAnimatedWebp()
 	{
-        $info = shell_exec(sprintf('identify %s', escapeshellarg($this->src)));
-        return preg_match('/\[\d+\] \w/', $info); // check if the output contains multiple frames
+		$info = shell_exec(sprintf('identify %s', escapeshellarg($this->src)));
+		return preg_match('/\[\d+\] \w/', $info); // check if the output contains multiple frames
 
-    }
+	}
 
 	private function checkAndHandleError(int $return_var, string $tempFile, array $output, string $errorMessage)
 	{
-    	if ($return_var !== 0 || !file_exists($tempFile)) {
-        	$this->destroy();
-        	$error_message = implode("\n", $output);
-        	error($errorMessage, null, $error_message);
-    	}
+		if ($return_var !== 0 || !file_exists($tempFile)) {
+			$this->destroy();
+			$error_message = implode("\n", $output);
+			error($errorMessage, null, $error_message);
+		}
 	}
 	// For when -auto-orient doesn't exist (older versions)
 	static public function jpeg_exif_orientation($src, $exif = false) {
@@ -715,14 +715,14 @@ class Blockhash
 
 		$total_difference_value = 0;
 
-    	for ($i = 0, $len = strlen($diff); $i < $len; $i++) {
+		for ($i = 0, $len = strlen($diff); $i < $len; $i++) {
 			$total_difference_value += self::count_bits(ord($diff[$i]));
 
-        	if ($total_difference_value >= $threshold) {
-            	return false;
-        	}
-    	}
-    	return $total_difference_value < $threshold;
+			if ($total_difference_value >= $threshold) {
+				return false;
+			}
+		}
+		return $total_difference_value < $threshold;
 	}
 
 	/**
@@ -735,7 +735,7 @@ class Blockhash
  	*/
 	private static function count_bits(int $byte): int
 	{
-    	return substr_count(decbin($byte), '1');
+		return substr_count(decbin($byte), '1');
 	}
 
 }

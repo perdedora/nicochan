@@ -24,29 +24,41 @@
 */
 
 document.addEventListener('DOMContentLoaded', function () {
-    const doEmbedYouTube = (container) => {
-        const videoLinks = container.querySelectorAll('div.video-container a');
+    const doEmbedVideos = (container) => {
+        const videoContainers = container.querySelectorAll('div.video-container');
 
-        videoLinks.forEach(link => {
+        videoContainers.forEach(container => {
+            const provider = container.querySelector('.provider-embed')?.dataset.provider;
+            const videoID = container.dataset.video;
+
+            const link = container.querySelector('a.file');
             link.addEventListener('click', function (event) {
                 event.preventDefault();
-                
-                const videoID = this.parentElement.dataset.video;
 
-                this.parentElement.innerHTML = `
-                    <iframe style="float:left;margin: 10px 20px" type="text/html"
-                        width="360" height="270" src="//www.youtube.com/embed/${videoID}?autoplay=1&html5=1" 
-                        allowfullscreen frameborder="0">
-                    </iframe>
-                `;
+                let iframeHTML = '';
+                if (provider === 'yt') {
+                    iframeHTML = `
+                        <iframe style="float:left;margin: 10px 20px"
+                            width="360" height="270" src="//www.youtube.com/embed/${videoID}?autoplay=1&html5=1" 
+                            allowfullscreen frameborder="0">
+                        </iframe>
+                    `;
+                } else if (provider === 'dm') {
+                    iframeHTML = `
+                        <iframe style="float: left; margin: 10px 20px;" width="360" height="270" frameborder="0" 
+                        src="https://www.dailymotion.com/embed/video/${videoID}" allowfullscreen></iframe>
+                    `;
+                }
+
+                if (iframeHTML) {
+                    container.innerHTML = iframeHTML;
+                }
             });
         });
     };
 
-    doEmbedYouTube(document);
-
-    // Allow to work with auto-reload.js, etc.
+    doEmbedVideos(document);
     document.addEventListener('new_post_js', function (e) {
-        doEmbedYouTube(e.detail.detail);
+        doEmbedVideos(e.detail.detail);
     });
 });

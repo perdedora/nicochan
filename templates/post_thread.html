@@ -6,7 +6,7 @@
 
         {% include 'post/fileinfo.html' %}
         
-        <div class="post op" id="op_{{ post.id }}" {% if post.num_files > 1 %}style="clear:both"{% endif %}>
+        <div class="post op" id="op_{{ post.id }}" {% if post.num_files > 1 %}style="clear:both"{% endif %} data-board="{{ board.uri }}">
             <div class="intro">
 
                 {% include 'partials/post_header.html' %}
@@ -41,6 +41,10 @@
                     {% else %}
                         <img class="icon" title="{% trans %}Cyclical{% endtrans %}" src="{{ config.image_sticky }}" alt="{% trans %}Cyclical{% endtrans %}" />
                     {% endif %}
+                {% endif %}
+
+                {% if isnoko50 or index %}
+                    <a href="{{ post.link('', false, true) }}">[{% trans %}View All{% endtrans %}]</a>
                 {% endif %}
 
             </div>
@@ -93,9 +97,6 @@
     {% endfor %}
     <br class="clear"/>
     {% if not post_shadow %}
-        {% if isnoko50 or index %}
-            <a href="{{ post.link('', false, true) }}">[{% trans %}View All{% endtrans %}]</a>
-        {% endif %}
         {% if hasnoko50 and not isnoko50 %}
             {% set lastcount = config.noko50_count %}
             <a href="{{ post.link('', '50', true) }}">[{% trans %}Last 1 Post{% plural lastcount %}Last {{ count }} Posts{% endtrans %}]</a>

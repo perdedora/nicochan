@@ -36,8 +36,13 @@
             "inc/api.php",
             "inc/mod/auth.php",
             "inc/functions.php",
-	        "inc/shadow-delete.php",
-            "inc/functions/net.php"
+            "inc/functions/net.php",
+            "inc/functions/ip.php",
+            "inc/functions/format.php",
+            "inc/functions/num.php",
+            "inc/functions/theme.php",
+            "inc/context.php",
+            "inc/Controller/ArchiveManager.php"
         ]
     },
     "license": "MIT",

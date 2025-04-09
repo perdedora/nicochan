@@ -115,22 +115,50 @@
                     {{ antibot.html() }}
                 </td>
             </tr>
-            
-            {% if config.hcaptcha %}
+           
+            {% if config.captcha.provider == 'recaptcha' %}
+                {% if config.captcha.dynamic %}
+                    <tr id="captcha" style="display: none;"></tr>
+                {% else %}
+                <tr>
+                {% endif %}
+                <th>
+                    {% trans %}Verification{% endtrans %}
+                    {{ antibot.html() }}
+                </th>
+                <td>
+                    <div class="g-recaptcha" data-sitekey="{{ config.captcha.recaptcha.sitekey }}"></div>
+                    {{ antibot.html() }}
+                </td>
+                </tr>
+            {% endif %}
+            {% if config.captcha.provider == 'hcaptcha' %}
                 <tr>
                     <th>
                         {% trans %}Verification{% endtrans %}
                         {{ antibot.html() }}
                     </th>
                     <td>
-                        <div class="h-captcha" data-sitekey="{{ config.hcaptcha_public }}"></div>
+                        <div class="h-captcha" data-sitekey="{{ config.captcha.hcaptcha.sitekey }}"></div>
                         {{ antibot.html() }}
                     </td>
                 </tr>
             {% endif %}
-            
-            {% if config.captcha.post_captcha or (config.captcha.thread_captcha and not id) %}
-                <tr class='captcha'>
+            {% if config.captcha.provider == 'yandexcaptcha' %}
+                <tr>
+                    <th>
+                        {% trans %}Verification{% endtrans %}
+                        {{ antibot.html() }}
+                    </th>
+                    <td>
+                        <div style="height: 100px" id="captcha-container" class="smart-captcha" data-sitekey="{{ config.captcha.yandexcaptcha.sitekey }}"></div>
+                        {{ antibot.html() }}
+                    </td>
+                </tr>
+            {% endif %}
+            {% if (config.captcha.provider == 'native' and not config.captcha.native.new_thread_capt) or 
+                (config.captcha.provider == 'native' and config.captcha.native.new_thread_capt and not id) %}
+                <tr class="captcha">
                     <th>
                         {% trans %}Verification{% endtrans %}
                     </th>
@@ -138,13 +166,12 @@
                         <noscript>
                             <input class='captcha_text' type='text' name='captcha_text' size='32' maxlength='6' autocomplete='off'>
                             <div class="captcha_html">
-                                <img src="{{ config.captcha.provider_get }}?mode=get&raw=1">
+                                <img src="{{ config.captcha.native.provider_get }}?mode=get&raw=1">
                             </div>
                         </noscript>
                     </td>
                 </tr>
             {% endif %}
-            
             {% if config.user_flag %}
                 <tr>
                     <th>

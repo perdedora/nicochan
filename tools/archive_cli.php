@@ -4,9 +4,16 @@
 
 require dirname(__FILE__) . '/inc/cli.php';
 
+use Vichan\Controllers\Archive\ArchiveManager;
+use Vichan\Data\ArchiveQueries;
+use Vichan\Data\Driver\LogDriver;
+use Vichan\View\ArchiveTemplating;
+
 // Make sure cript is run from commandline interface
 if(php_sapi_name() !== 'cli')
     exit();
+
+$ctx = Vichan\build_context($config);
 
 // Set config variables so we aren't hindered in archiving or purging.
 $config['archive']['cron_job']['archiving'] = false;
@@ -24,11 +31,12 @@ foreach($boards as &$board) {
 	openBoard($board['uri']);
 
     // Archive Threads that are pushed off Catalog
-    clean();
+    clean($ctx);
     // Clean Archive Purge old entries off it
-    Archive::RebuildArchiveIndexes();
+    (new ArchiveManager(
+        $config,
+        $ctx->get(LogDriver::class),
+        $ctx->get(ArchiveQueries::class),
+        $ctx->get(ArchiveTemplating::class)
+    ))->rebuildArchiveIndexes();
 }
-
-
-
-?>

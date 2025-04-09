@@ -37,8 +37,8 @@ class Captcha {
 		$html = '<img src="'.$b64img.'">';
 		ob_end_clean();
 		$cdata = $i->getCode();
-		Cache::set("cookie_{$cookie}", $cdata, $this->config['captcha']['expires_in']);
-		return ['cookie' => $cookie, 'html' => $html, 'rawimg' => $rawimg, 'expires_in' => $this->config['captcha']['expires_in']];
+		Cache::set("cookie_{$cookie}", $cdata, $this->config['captcha']['native']['expires_in']);
+		return ['cookie' => $cookie, 'html' => $html, 'rawimg' => $rawimg, 'expires_in' => $this->config['captcha']['native']['expires_in']];
 	}
 }
 

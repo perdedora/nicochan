@@ -119,6 +119,7 @@ class Api
                 $apiPost['thumb_path'] = $this->config['dir']['media'] . $file->thumb; 
                 $apiPost['spoiler'] = 0;
             }
+
         }
 
         if (isset($file->hash) && $file->hash) {
@@ -251,7 +252,7 @@ class Api
         return $apiCatalog;
     }
 
-    public function serializeBoardsWithConfig(array $boards): string
+    public function serializeBoardsWithConfig(array $boards): string 
     {
         global $config; // we need to use global here because of openBoard
 
@@ -263,8 +264,8 @@ class Api
 
             $board_config = [
                 'board_locked' => $config['board_locked'],
-                'thread_captcha' => $config['captcha']['thread_captcha'],
-                'post_captcha' => $config['captcha']['post_captcha'],
+                'thread_captcha' => $config['captcha']['native']['new_thread_capt'],
+                'post_captcha' => $config['captcha']['provider'] !== false,
                 'allow_delete' => $config['allow_delete'],
                 'image_hard_limit' => $config['image_hard_limit'],
                 'reply_hard_limit' => $config['reply_hard_limit'],

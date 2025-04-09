@@ -9,7 +9,7 @@
 	<br>
 	{% if mod|hasPermission(config.mod.show_ip, report.board) %}
 		<strong>{% trans %}Reported by{% endtrans %}:</strong> 
-		<a href="?/IP/{{ report.ip }}/page/1">{{ report.ip }}</a>
+		<a href="?/user_posts/ip/{{ report.ip }}">{{ report.ip }}</a>
 		<br>
 	{% endif %}
 	{% if mod|hasPermission(config.mod.report_dismiss, report.board) or mod|hasPermission(config.mod.report_dismiss_ip, report.board) %}

@@ -45,8 +45,13 @@ function validate_webm(array $ffprobeOutput, array $config): array
             break;
 
         case 'mp4':
-            if (empty($streams[0]['codec_name']) || empty($streams[1]['codec_name']) ||
-                $streams[0]['codec_name'] !== 'h264' && $streams[1]['codec_name'] !== 'aac') {
+            if (empty($streams[0]['codec_name'])) {
+                return ['code' => 2, 'msg' => $config['error']['invalidwebm']];
+            }
+            $videoCodec = $streams[0]['codec_name'];
+            $audioCodec = $streams[1]['codec_name'] ?? null;
+
+            if ($videoCodec !== 'h264' || ($audioCodec && $audioCodec !== 'aac')) {
                 return ['code' => 2, 'msg' => $config['error']['invalidwebm']];
             }
             break;

@@ -74,7 +74,7 @@ const banlist_init = (token, inMod) => {
       },
       cellRenderer: ({ data, value }) => {
         return inMod && data.single_addr && !data.masked
-          ? `<a href="?/IP/${value}/page/1">${data.mask_human_readable}</a>`
+          ? `<a href="?/user_posts/ip/${value}">${data.mask_human_readable}</a>`
           : data.mask_human_readable;
       },
       cellStyle: ({ data }) => expiredStyle(data.expires)

@@ -85,7 +85,7 @@ function handleWebmWithoutFFmpeg(object $file, bool $op, array $config): null | 
 function setThumbnailFromVideoDetails(object $file, array $videoDetails, array $config): string
 {
 
-    $thumbName = $config['dir']['media'] . $file->file_id . '.webm';
+    $thumbName = $config['dir']['media'] . $file->file_id . '_t' . '.webp';
 
     if ($config['spoiler_images'] && isset($_POST['spoiler'])) {
         $file = webm_set_spoiler($file, $config['spoiler_image']);

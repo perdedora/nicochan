@@ -90,7 +90,7 @@
 		{% for log in logs %}
 			<tr>
 				<td class="minimal">
-					<a href="?/IP/{{ log.ip }}/page/1">{{ log.ip }}</a>
+					<a href="?/user_posts/ip/{{ log.ip }}">{{ log.ip }}</a>
 				</td>
 				<td class="minimal">
 					<span title="{{ log.time|strftime }}">{{ log.time|ago }}</span>

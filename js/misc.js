@@ -60,11 +60,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (id === 'downloadNewFilename') {
-            updateDownloadFilename(isChecked);
+            updateDownloadFilenames(isChecked);
         }
     }
 
-    function updateDownloadFilename(isChecked, sel = document) {
+    function updateDownloadFilenames(isChecked, sel = document) {
         const icons = sel.querySelectorAll('a.download-image-icon');
         icons?.forEach(icon => {
             if (isChecked) {
@@ -77,6 +77,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('new_post_js', (event) => {
         const isChecked = localStorage.getItem('downloadNewFilename') === 'true';
-        updateDownloadFilename(isChecked, event.detail.detail);
-    })
+        updateDownloadFilenames(isChecked, event.detail.detail);
+    });
 });

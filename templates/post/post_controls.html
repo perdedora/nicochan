@@ -50,7 +50,17 @@
                     {% endif %}
                     {% if mod|hasPermission(config.mod.bandeletebyip, board.uri) %}
                         <li>
-                            <a title="{% trans %}Ban & Delete all post by IP{% endtrans %}" data-action="bandeleteglobal" href="?/{{ board.dir }}ban&amp;deletebyip/{{ post.id }}">{{ config.mod.link_bandeletebyip }} - {% trans %}Ban & Delete all post by IP{% endtrans %}</a>
+                            <a title="{% trans %}Ban & Delete all post by IP{% endtrans %}" data-action="bandeleteip" href="?/{{ board.dir }}ban&amp;deletebyip/{{ post.id }}">{{ config.mod.link_bandeletebyip }} - {% trans %}Ban & Delete all post by IP{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.bandeletebyipglobal, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Ban & Delete all post by IP global{% endtrans %}" data-action="bandeleteipglobal" href="?/{{ board.dir }}ban&amp;deletebyipglobal/{{ post.id }}">{{ config.mod.link_bandeletebyipglobal }} - {% trans %}Ban & Delete all post by IP global{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.bandeletebycookies, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Ban & Delete all post by cookies{% endtrans %}" data-action="bandeletecookies" href="?/{{ board.dir }}ban&amp;deletebycookies/{{ post.id }}">{{ config.mod.link_deletebycookies }} - {% trans %}Ban & Delete all post by cookies{% endtrans %}</a>
                         </li>
                     {% endif %}
                     {% if mod|hasPermission(config.mod.warning, board.uri) and mod|hasPermission(config.mod.delete, board.uri) %}
@@ -122,13 +132,6 @@
                             </li>
                         {% endif %}
                     {% endif %}
-                    {% if mod|hasPermission(config.mod.send_threads_to_archive, board.uri) %}
-                        <li>
-                            {% set link_sendarchive_title %}{% trans %}Send thread to archive{% endtrans %}{% endset %}
-                            {% set link_sendarchive_confirm %}{% trans %}Are you sure you want to send thread to archive and delete it from the catalog?{% endtrans %}{% endset %}
-                            {{ secure_link_confirm(config.mod.link_send_to_archive, link_sendarchive_title, link_sendarchive_confirm, board.dir ~ 'archive_thread/' ~ post.id, 'archive', true) }}
-                        </li>
-                    {% endif %}
                     {% if mod|hasPermission(config.mod.cycle, board.uri) %}
                         {% if post.cycle %}
                             <li>
@@ -181,6 +184,37 @@
                     {% endif %}
                 </ul>
             </li>
+        {% if not post.thread %}
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Archive{% endtrans %}</span>
+                <ul>
+                    {% if not post.archive %}
+                        {% if mod|hasPermission(config.mod.send_threads_to_archive, board.uri) %}
+                            <li>
+                                {% set link_sendarchive_title %}{% trans %}Send thread to archive{% endtrans %}{% endset %}
+                                {% set link_sendarchive_confirm %}{% trans %}Are you sure you want to send thread to archive and delete it from the catalog?{% endtrans %}{% endset %}
+                                {{ secure_link_confirm(config.mod.link_send_to_archive, link_sendarchive_title, link_sendarchive_confirm, board.dir ~ 'archive_thread/' ~ post.id, 'archive', true) }}
+                            </li>
+                        {% endif %}
+                    {% else %}
+                        {% if mod|hasPermission(config.mod.restore_archive_post, board.uri) %}
+                            <li>
+                                {% set link_restorearchive_title %}{% trans %}Restore Archive Thread{% endtrans %}{% endset %}
+                                {% set link_restorearchive_confirm %}{% trans %}Are you sure you want to restore this thread from the archive? It will be placed at last page{% endtrans %}{% endset %}
+                                {{ secure_link_confirm(config.mod.link_archive_restore, link_restorearchive_title, link_restorearchive_confirm, board.dir ~ 'archive_restore/' ~ post.id, 'restorearchive', true) }}
+                            </li>
+                        {% endif %}
+                        {% if mod|hasPermission(config.mod.delete_archive_post, board.uri) %}
+                            <li>
+                                {% set link_deletearchive_title %}{% trans %}Permanent Delete Archive Thread{% endtrans %}{% endset %}
+                                {% set link_deletearchive_confirm %}{% trans %}Are you sure you want to permanent delete this thread from the archive? This action will NOT be reversible!{% endtrans %}{% endset %}
+                                {{ secure_link_confirm(config.mod.link_archive_delete, link_deletearchive_title, link_deletearchive_confirm, board.dir ~ 'archive_delete/' ~ post.id, 'deletearchive', true) }}
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+            </li>
+        {% endif %}
         {% else %}
             <li class="menu-section">
                 <span class="section-title">{% trans %}Shadow Delete{% endtrans %}</span>

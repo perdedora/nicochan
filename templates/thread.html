@@ -51,7 +51,9 @@
 
     {{ config.ad.top }}
 
-    {% include 'post_form.html' %}
+    {% if not thread.archive %}
+        {% include 'post_form.html' %}
+    {% endif %}
 
     {% if config.global_message %}
         {% include 'partials/global_message.html' %}

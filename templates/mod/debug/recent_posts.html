@@ -78,7 +78,7 @@
 			</td>
 			<td class="minimal">
 				{% if mod|hasPermission(config.mod.show_ip, post.board) %}
-					<a href="?/IP/{{ post.ip }}/page/1">
+					<a href="?/user_posts/ip/{{ post.ip }}">
 						{{ post.ip }}
 					</a>
 				{% else %}

@@ -355,12 +355,14 @@ abstract class AbstractPost
     public string $ip;
     public string $cookie;
     public bool $shadow;
+	public ?bool $archive;
     public ?string $embed;
     public ?string $slug;
     public ?string $flag_iso;
     public ?string $flag_ext;
     public ?string $embed_url;
     public ?string $embed_title;
+	public ?string $embed_thumbnail;
     public ?array $modifiers;
 
     public function __construct(array $config, array $post, string $root = '', mixed $mod = false)
@@ -388,6 +390,7 @@ abstract class AbstractPost
             $url = json_decode($this->embed);
             $this->embed_url = $url->url;
             $this->embed_title = $url->title;
+			$this->embed_thumbnail = isset($url->thumbnail) ? $url->thumbnail : null;
             $this->embed_html($url);
         }
 
@@ -440,6 +443,12 @@ abstract class AbstractPost
                 $html = str_replace('%%tb_width%%', $this->config['embed_width'], $html);
                 $html = str_replace('%%tb_height%%', $this->config['embed_height'], $html);
 
+				$thumbnail = isset($link->thumbnail) && $link->thumbnail
+					? htmlspecialchars($link->thumbnail)
+					: $this->config['image_deleted'];
+
+				$html = str_replace('%%THUMBNAIL_URL%%', $thumbnail, $html);
+
                 $this->embed = $html;
 				break;
             }
@@ -461,8 +470,8 @@ class Post extends AbstractPost
             'board' => $this->full_board,
             'post' => &$this,
             'index' => $index,
-			'pm' => $this->mod ? create_pm_header() : null,
-            'mod' => $this->mod
+            'mod' => $this->mod,
+			'pm' => $this->mod ?: create_pm_header()
         ]);
     }
 }
@@ -522,8 +531,8 @@ class Thread extends AbstractPost
             'index' => $index,
             'hasnoko50' => $hasnoko50,
             'isnoko50' => $isnoko50,
-			'pm' => $this->mod ? create_pm_header() : null,
-            'mod' => $this->mod
+            'mod' => $this->mod,
+			'pm' => $this->mod ?: create_pm_header()
         ]);
     }
 

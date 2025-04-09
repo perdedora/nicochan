@@ -1,5 +1,5 @@
 {% apply spaceless %}
-    <div class="post reply {% if post.shadow %}shadow-post{% endif %}" id="reply_{{ post.id }}">
+    <div class="post reply {% if post.shadow %}shadow-post{% endif %}" id="reply_{{ post.id }}" data-board="{{ board.uri }}">
         <div class="intro">
             {% if not index %}
                 <a id="{{ post.id }}" class="post_anchor"></a>

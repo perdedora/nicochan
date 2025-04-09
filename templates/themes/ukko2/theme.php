@@ -1,4 +1,7 @@
 <?php
+
+use Vichan\Data\FileSystem;
+
 	require 'info.php';
 
 	function ukko2_build($action, $settings) {
@@ -36,7 +39,7 @@
 					if(in_array($_board['uri'], explode(' ', $this->settings['exclude'])))
 						continue;
 				}
-					$query .= sprintf("SELECT *, '%s' AS `board` FROM ``posts_%s`` WHERE `thread` IS NULL ". ($mod && hasPermission($config['mod']['view_shadow_posts'], $_board['uri']) ? '' : 'AND `shadow` = 0') . " UNION ALL ", $_board['uri'], $_board['uri']);
+					$query .= sprintf("SELECT *, '%s' AS `board` FROM ``posts_%s`` WHERE `thread` IS NULL AND `archive` = 0 ". ($mod && hasPermission($config['mod']['view_shadow_posts'], $_board['uri']) ? '' : 'AND `shadow` = 0') . " UNION ALL ", $_board['uri'], $_board['uri']);
 					array_push($boardsforukko2,$_board);
 
 			}
@@ -51,7 +54,7 @@
 			while($post = $query->fetch()) {
 
 				if($post['shadow'] && $post['files'])
-					$post['files'] = Shadowdelete::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
+					$post['files'] = FileSystem::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
 
 				if(!isset($threads[$post['board']])) {
 					$threads[$post['board']] = 1;
@@ -71,7 +74,7 @@
 					$num_images = 0;
 					while ($po = $posts->fetch()) {
 						if($po['shadow'] && $po['files'])
-							$po['files'] = Shadowdelete::hashShadowDelFilenamesDBJSON($po['files'], $config['shadow_del']['filename_seed']);
+							$po['files'] = FileSystem::hashShadowDelFilenamesDBJSON($po['files'], $config['shadow_del']['filename_seed']);
 						if ($po['files'])
 							$num_images++;
 						$po['board'] = $post['board'];
@@ -140,6 +143,7 @@
 				'recent' => getLatestReplies($config),
 				'reports' => $mod ? getCountReports() : false,
 				'boardlist' => createBoardlist($mod),
+				'capcodes' => $mod ? availableCapcodes($config['mod']['capcode'], $mod['type']) : false,
 				'boards' => $boardsforukko2,
 				'antibot' => $antibot
 			));

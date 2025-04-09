@@ -162,10 +162,8 @@ document.addEventListener('DOMContentLoaded', function () {
 		};
 
 		async function summonPost(link) {
-			const linkText = link.textContent;
-			const matches = linkText.match(/^>>(?:>\/([^/]+)\/)?(\d+)$/);
-			if (!matches) return null;
-			const id = matches[2];
+			const id = link.dataset.cite;
+			if (!id) return null;
 
 			let hover = document.getElementById(`hover_reply_${id}`);
 			if (hover) {
@@ -497,9 +495,9 @@ document.addEventListener('DOMContentLoaded', function () {
 			if (link.hasAttribute('data-thread')) {
 				id = link.getAttribute('data-thread');
 			} else {
-				// TODO: Add data-board to highlight-link
-				matches = link.textContent.match(/^>>(?:>\/([^/]+)\/)?(\d+)$/);
-				id = matches[2];
+				matches = link.dataset.cite;
+				if (!matches) return;
+				id = matches;
 			}
 			if (!id) return;
 
@@ -524,8 +522,8 @@ document.addEventListener('DOMContentLoaded', function () {
 				if (boardInput) {
 					parentBoard = boardInput.value;
 				}
-			} else if (matches[1] !== undefined) {
-				board = matches[1];
+			} else if (link.dataset.board !== undefined) {
+				board = link.dataset.board;
 			}
 
 			let post = null;

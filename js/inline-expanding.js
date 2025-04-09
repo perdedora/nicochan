@@ -127,9 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	};
 
 	const setupUserOption = () => {
-		Options.extend_tab('general', `<span id="inline-expand-max">${_('Number of simultaneous image downloads (0 to disable): ')}
-										<input type="number" step="1" min="0" size="4"></span>`);
-
+		Options.extend_tab(
+			'general',
+			`<fieldset><legend>${_('Inline Expanding')}</legend>
+		<label class='inline-expanding' id='inline-expand-max'>
+			<input type='number' step="1" min="0" size="4" /> ${_('Number of simultaneous image downloads (0 to disable): ')}</label>
+		<label class='inline-expanding' id='inline-expand-fit-height'>
+			<input type='checkbox' /> ${_('Fit expanded images into screen height')}</label>
+		</fieldset>`
+		);
 		const input = document.querySelector('#inline-expand-max input');
 		input.style.width = '50px';
 		input.value = parseInt(localStorage.inline_expand_max) || DEFAULT_MAX;
@@ -137,6 +143,22 @@ document.addEventListener('DOMContentLoaded', () => {
 			const n = Math.max(0, parseInt(e.target.value));
 			localStorage.inline_expand_max = n;
 		};
+
+		const toggleFitHeight = (enabled) => {
+			localStorage.inline_expand_fit_height = enabled ? 'true' : 'false';
+			if (enabled) {
+				insertStyleFitHeight();
+			} else {
+				document.querySelector('#expand-fit-height-style')?.remove();
+			}
+		}
+
+		const fitHeight = document.querySelector('#inline-expand-fit-height input');
+		fitHeight.addEventListener('change', (e) => toggleFitHeight(e.target.checked));
+
+		const isFitHeight = localStorage.getItem('inline_expand_fit_height') === 'true';
+		fitHeight.checked = isFitHeight;
+		toggleFitHeight(isFitHeight);
 	};
 
 	const updateAllPosts = () => {
@@ -146,6 +168,15 @@ document.addEventListener('DOMContentLoaded', () => {
 	const handleNewPost = post => {
 		inlineExpandPost(post);
 	};
+
+	const insertStyleFitHeight = () => {
+		Vichan.createElement('style', {
+			text: ` .full-image{ max-height: ${window.innerHeight}px; }
+			`,
+			idName: 'expand-fit-height-style',
+			parent: document.head
+		});
+	}
 
 	// Initialize
 	setupUserOption();

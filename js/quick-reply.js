@@ -136,7 +136,6 @@
 		if (!origPostForm) return;
 		const postForm = origPostForm.cloneNode(true);
 
-		triggerCustomEvent('quick-reply', window);
 
 		const dummyStuff = Vichan.createElement('div', {
 			className: 'nonsense',
@@ -185,6 +184,10 @@
 			attributes: { href: '#' },
 			onClick: function (e) {
 				e.preventDefault();
+				removeSyncInputs('input[type="text"], select, input[type="checkbox"], textarea[name="body"]');
+				if (!document.querySelector('.dropzone-wrap')) {
+					removeSyncInputs('input[type="file"]');
+				}
 				postForm.remove();
 				floatingLink();
 			},
@@ -228,40 +231,68 @@
 			}
 		}
 
+		const listenersMap = new WeakMap();
 
 		const syncInputs = function (selector) {
 			const origInputs = origPostForm.querySelectorAll(selector);
 			origInputs.forEach(function (origInput) {
 				const quickReplyInput = postForm.querySelector(`[name="${origInput.name}"]`);
-				if (quickReplyInput) {
-					if (origInput.type === 'checkbox') {
-						origInput.addEventListener('change', function () {
-							quickReplyInput.checked = this.checked;
-						});
-						quickReplyInput.addEventListener('change', function () {
-							origInput.checked = this.checked;
-						});
-					} else {
-						origInput.addEventListener('input', function () {
-							quickReplyInput.value = this.value;
-						});
+				if (!quickReplyInput) return;
 
-						quickReplyInput.addEventListener('input', function () {
+				const eventPairs = [];
+
+				if (origInput.type === 'checkbox') {
+					const handleOrigCheck = function () {
+						quickReplyInput.checked = this.checked;
+					}
+					origInput.addEventListener('change', handleOrigCheck);
+					eventPairs.push(['change', handleOrigCheck]);
+
+					quickReplyInput.addEventListener('change', function () {
+						origInput.checked = this.checked;
+					});
+				} else {
+					const handleOrigInput = function () {
+						quickReplyInput.value = this.value;
+					}
+
+					origInput.addEventListener('input', handleOrigInput);
+					eventPairs.push(['input', handleOrigInput]);
+
+					quickReplyInput.addEventListener('input', function () {
+						origInput.value = this.value;
+					});
+
+					if (origInput.tagName === 'TEXTAREA') {
+						const handleOrigChange = function () {
+							quickReplyInput.value = this.value;
+						}
+						origInput.addEventListener('change', handleOrigChange);
+						eventPairs.push(['change', handleOrigChange]);
+
+						quickReplyInput.addEventListener('change', function () {
 							origInput.value = this.value;
 						});
-
-						if (origInput.tagName === 'TEXTAREA') {
-							origInput.addEventListener('change', function () {
-								quickReplyInput.value = this.value;
-							});
-							quickReplyInput.addEventListener('change', function () {
-								origInput.value = this.value;
-							});
-						}
 					}
 				}
+
+				listenersMap.set(origInput, eventPairs);
 			});
 		};
+
+		const removeSyncInputs = function (selector) {
+			const origInputs = origPostForm.querySelectorAll(selector);
+			origInputs.forEach(function (origInput) {
+				const eventPairs = listenersMap.get(origInput);
+				if (!eventPairs) return;
+
+				eventPairs.forEach(([eventName, handlerFn]) => {
+					origInput.removeEventListener(eventName, handlerFn);
+				});
+
+				listenersMap.delete(origInput);
+			});
+		}
 
 		syncInputs('input[type="text"], select, input[type="checkbox"], textarea[name="body"]');
 		if (!document.querySelector('.dropzone-wrap')) {
@@ -281,6 +312,8 @@
 			postForm.style.top = `${offset.top}px`;
 			postForm.style.right = 'auto';
 		}
+
+		triggerCustomEvent('quick-reply', window);
 
 		makeDraggable(postForm, postForm.querySelector('.handle'));
 
@@ -446,6 +479,7 @@
 					postForm.style.display = 'none';
 				} else {
 					postForm.style.display = 'block';
+					triggerCustomEvent('quick-reply-shown', window);
 				}
 			}
 
@@ -490,7 +524,6 @@
 						quickReplyButton.style.display = 'none';
 					} else {
 						quickReplyButton.style.display = 'block';
-						triggerCustomEvent('quick-reply-shown', window);
 					}
 				}
 				window.addEventListener('scroll', scrollHandler);
@@ -524,6 +557,7 @@
 			e.preventDefault();
 			show_quick_reply();
 		});
+
 	}
 
 	const indexButtonQr = () => {

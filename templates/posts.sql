@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS ``posts_%s`` (
   `sage` int(1) DEFAULT 0 NOT NULL,
   `hideid` int(1) NOT NULL,
   `shadow` int(1) DEFAULT 0 NOT NULL,
+  `archive` int(1) DEFAULT 0 NOT NULL,
   `embed` text,
   `slug` varchar(256) DEFAULT NULL,
   `flag_iso` varchar(6) DEFAULT NULL,

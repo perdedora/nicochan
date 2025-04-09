@@ -181,6 +181,7 @@ document.addEventListener('menu_ready_js', function () {
 				el.style.display = '';
 			});
 		}
+
 		updateIconAfter(ele);
 	}
 
@@ -388,7 +389,7 @@ document.addEventListener('menu_ready_js', function () {
 					? '<i class="fa fa-plus-square" style="color: #9e0059 !important"></i>'
 					: '<i class="fa fa-minus-square" style="color: #9e0059 !important"></i>',
 				attributes: {
-					style: 'margin-right: 5px',
+					style: 'margin-left: 5px;',
 					title: ele.dataset.hidden ? _('Unhide post') : _('Hide post')
 				},
 				onClick: function () {
@@ -398,11 +399,9 @@ document.addEventListener('menu_ready_js', function () {
 
 					if (hidden) {
 						blacklist.remove.post(boardId, threadId, postId, false);
-						this.innerHTML = '<i class="fa fa-minus-square" style="color: #9e0059 !important"></i>';
 						show(ele);
 					} else {
 						blacklist.add.post(boardId, threadId, postId, false);
-						this.innerHTML = '<i class="fa fa-plus-square" style="color: #9e0059 !important"></i>';
 						hide(ele);
 					}
 				}
@@ -770,6 +769,7 @@ document.addEventListener('menu_ready_js', function () {
 					quickToggle(reply, threadId);
 				});
 			}
+
 		});
 
 		document.addEventListener('filter_page', function () {

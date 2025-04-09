@@ -29,7 +29,6 @@
     
 	{% if pm %}
 		{% include 'partials/top_notice.html' %}
-		<hr />
 	{% endif %}
 
 	{% if config.url_banner %}
@@ -78,11 +77,11 @@
 		{% if mod %}
 			{% include 'partials/reports_count.html' %}
 		{% endif %}
+
 		{% include 'partials/buttons.html' with { index: true, bottom: true } %}
 	</form>
 
 	<a href="#top" class="elevadorCima elevador">△</a>
-    
 	{% if not isukko %}
 		{% include 'partials/page.html' %}
 		<a name="bottom"></a>

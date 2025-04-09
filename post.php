@@ -5,6 +5,12 @@
 
 require_once 'inc/bootstrap.php';
 
+use Vichan\Context;
+use Vichan\Data\Driver\{LogDriver, CacheDriver};
+use Vichan\Data\ReportQueries;
+use Vichan\Service\{RemoteCaptchaQuery, SecureImageCaptchaQuery};
+use Vichan\Functions\{Format, IP};
+
 /**
  * Get the md5 hash of the file.
  *
@@ -54,13 +60,33 @@ function ocr_image(array $config, string $img_path): string {
 }
 
 /**
+ * Trim an image's EXIF metadata
+ *
+ * @param string $img_path The file path to the image.
+ * @return int The size of the stripped file.
+ * @throws RuntimeException Throws on IO errors.
+ */
+function strip_image_metadata(string $img_path): int {
+	$err = shell_exec_error('exiftool -overwrite_original -ignoreMinorErrors -q -q -all= -Orientation ' . escapeshellarg($img_path));
+	if ($err === false) {
+		throw new RuntimeException('Could not strip EXIF metadata!');
+	}
+	clearstatcache(true, $img_path);
+	$ret = filesize($img_path);
+	if ($ret === false) {
+		throw new RuntimeException('Could not calculate file size!');
+	}
+	return $ret;
+}
+
+/**
  * Delete posts in a cyclical thread.
  *
  * @param string $boardUri The URI of the board.
  * @param int $threadId The ID of the thread.
  * @param int $cycleLimit The number of most recent posts to retain.
  */
-function deleteCyclicalPosts(string $boardUri, int $threadId, int $cycleLimit): void
+function deleteCyclicalPosts(Context $ctx, string $boardUri, int $threadId, int $cycleLimit): void
 {
     $query = prepare(sprintf('
         SELECT p.id
@@ -84,13 +110,15 @@ function deleteCyclicalPosts(string $boardUri, int $threadId, int $cycleLimit): 
     $ids = $query->fetchAll(PDO::FETCH_COLUMN);
 
     foreach ($ids as $id) {
-        deletePostShadow($id, false);
+        deletePostShadow($ctx, $id, false);
     }
 }
 
-function handle_delete()
+function handle_delete(Context $ctx)
 {
-    global $config, $board;
+    global $board;
+
+    $config = $ctx->get('config');
 
     if (!isset($_POST['board'], $_POST['password'])) {
         error($config['error']['bot']);
@@ -133,7 +161,7 @@ function handle_delete()
     }
 
     foreach ($delete as &$id) {
-        $query = prepare(sprintf("SELECT `id`,`thread`,`time`,`password`, `num_files` FROM ``posts_%s`` WHERE `id` = :id", $board['uri']));
+        $query = prepare(sprintf("SELECT `id`,`thread`,`time`,`password`, `num_files`, `archive` FROM ``posts_%s`` WHERE `id` = :id", $board['uri']));
         $query->bindValue(':id', $id, PDO::PARAM_INT);
         $query->execute() or error(db_error($query));
 
@@ -141,6 +169,10 @@ function handle_delete()
 
         if (!$post) {
             continue;
+        }
+
+        if ($post['archive']) {
+            error($config['archive_delete']);
         }
 
 
@@ -168,11 +200,11 @@ function handle_delete()
             $reply_count = numPosts($id);
 
             if ($post['time'] > time() - $config['delete_time']) {
-                error(sprintf($config['error']['delete_too_soon'], until($post['time'] + $config['delete_time'])));
+                error(sprintf($config['error']['delete_too_soon'], Format\until($post['time'] + $config['delete_time'])));
             }
         } else {
             if ($post['time'] > time() - $config['delete_time_reply'] && (!$thread || !hash_equals($thread['password'], $password))) {
-                error(sprintf($config['error']['delete_too_soon'], until($post['time'] + $config['delete_time'])));
+                error(sprintf($config['error']['delete_too_soon'], Format\until($post['time'] + $config['delete_time'])));
             }
         }
 
@@ -199,7 +231,7 @@ function handle_delete()
 
             // Delete entire post
             if($config['shadow_del']['user_delete']) {
-                deletePostShadow($id);
+                deletePostShadow($ctx, $id);
                 modLog("User at $ip deleted his own post #$id (shadow deleted)");
             } else {
                 deletePostPermanent($id);
@@ -207,11 +239,10 @@ function handle_delete()
             }
         }
 
-        _syslog(
-            LOG_INFO,
-            'Deleted post: ' .
-            '/' . $board['dir'] . $config['dir']['res'] . link_for($post) . ($post['thread'] ? '#' . $id : '')
-        );
+		$ctx->get(LogDriver::class)->log(
+			LogDriver::INFO,
+			'Deleted post: /' . $board['dir'] . $config['dir']['res'] . link_for($post) . ($post['thread'] ? '#' . $id : '')
+		);
     }
 
     buildIndex();
@@ -233,12 +264,14 @@ function handle_delete()
         @fastcgi_finish_request();
     }
 
-    rebuildThemes('post-delete', $board['uri']);
+    Vichan\Functions\Theme\rebuild_themes('post-delete', $board['uri']);
 
 }
-function handle_report()
+function handle_report(Context $ctx)
 {
-    global $config, $board;
+    global $board;
+
+    $config = $ctx->get('config');
 
     if (!isset($_POST['board'], $_POST['reason'])) {
         error($config['error']['bot']);
@@ -276,11 +309,11 @@ function handle_report()
         }
     }
 
-    $tries = Cache::get("report_send_{$_SERVER['REMOTE_ADDR']}_to_{$report[0]}") ?? 0;
-
     if (empty($report)) {
         error($config['error']['noreport']);
     }
+
+    $tries = $ctx->get(CacheDriver::class)->get("reports_send_{$_SERVER['REMOTE_ADDR']}_to_{$report[0]}") ?? 0;
 
     if (mb_strlen($_POST['reason']) > 30 || empty($_POST['reason'])) {
         error($config['error']['invalidreport']);
@@ -294,28 +327,33 @@ function handle_report()
         error($config['error']['toomanysamereport']);
     }
 
-    if ($config['captcha']['report_captcha'] && !isset($_POST['captcha_text'], $_POST['captcha_cookie'])) {
+    if ($config['captcha']['native']['report_captcha'] && !isset($_POST['captcha_text'], $_POST['captcha_cookie'])) {
         error($config['error']['bot']);
     }
 
 
-    if ($config['captcha']['report_captcha']) {
-        $ch = curl_init($config['captcha']['provider_check'] . "?" . http_build_query([
-            'mode' => 'check',
-            'text' => $_POST['captcha_text'],
-            'cookie' => $_POST['captcha_cookie']
-        ]));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        $resp = json_decode(curl_exec($ch), true);
+    if ($config['captcha']['native']['report_captcha']) {
+		if (!isset($_POST['captcha_text'], $_POST['captcha_cookie'])) {
+			error($config['error']['bot']);
+		}
 
-        if (!$resp['success']) {
-            error($config['error']['captcha']);
+        try {
+            $query = $ctx->get(SecureImageCaptchaQuery::class);
+            $success = $query->verify($_POST['captcha_text'], $_POST['captcha_cookie']);
+
+            if (!$success) {
+                error($config['error']['captcha']);
+            }
+        } catch (RuntimeException $e) {
+            $ctx->get(LogDriver::class)->log(LogDriver::ERROR, "Native captcha IO exception: {$e->getMessage()}");
+			error($config['error']['local_io_error']);
         }
-
     }
 
     $reason = escape_markup_modifiers($_POST['reason']);
     markup($reason);
+
+    $report_queries = $ctx->get(ReportQueries::class);
 
     foreach ($report as &$id) {
         $query = prepare(sprintf("SELECT `id`, `thread`, `body_nomarkup` FROM ``posts_%s`` WHERE `id` = :id", $board['uri']));
@@ -325,9 +363,7 @@ function handle_report()
         $post = $query->fetch(PDO::FETCH_ASSOC);
 
         if ($post === false) {
-            if ($config['syslog']) {
-                _syslog(LOG_INFO, "Failed to report non-existing post #{$id} in {$board['dir']}");
-            }
+            $ctx->get(LogDriver::class)->log(LogDriver::INFO, "Failed to report non-existing post #{$id} in {$board['dir']}");
             error($config['error']['nopost']);
         }
 
@@ -338,24 +374,17 @@ function handle_report()
         }
 
 
-        if ($config['syslog']) {
-            _syslog(
-                LOG_INFO,
-                'Reported post: ' .
-                '/' . $board['dir'] . $config['dir']['res'] . link_for($post) . ($post['thread'] ? '#' . $id : '') .
-                ' for "' . $reason . '"'
-            );
-        }
-        $ip = get_ip_hash($_SERVER['REMOTE_ADDR']);
-        $query = prepare("INSERT INTO ``reports`` (`time`, `ip`, `board`, `post`, `reason`) VALUES (:time, :ip, :board, :post, :reason)");
-        $query->bindValue(':time', time(), PDO::PARAM_INT);
-        $query->bindValue(':ip', $ip, PDO::PARAM_STR);
-        $query->bindValue(':board', $board['uri'], PDO::PARAM_STR);
-        $query->bindValue(':post', $id, PDO::PARAM_INT);
-        $query->bindValue(':reason', $reason, PDO::PARAM_STR);
-        $query->execute() or error(db_error($query));
+        $ctx->get(LogDriver::class)->log(
+			LogDriver::INFO,
+			'Reported post: /'
+				 . $board['dir'] . $config['dir']['res'] . link_for($post) . ($post['thread'] ? '#' . $id : '')
+				 . " for \"$reason\""
+		);
 
-        Cache::set("report_send_{$ip}_to_{$id}", $tries + 1, 60 * 10);
+        $ip = get_ip_hash($_SERVER['REMOTE_ADDR']);
+        $report_queries->add($ip, $board['uri'], $id, $reason);
+
+        $ctx->get(CacheDriver::class)->set("report_send_{$_SERVER['REMOTE_ADDR']}_to_{$id}", $tries + 1, 60 * 10);
 
         // thanks lainchan for the skeleton
         if ($config['discord']['enabled']) {
@@ -368,7 +397,7 @@ function handle_report()
             $discordmessage .= '***Board: *** /' . $board['dir'] . "\n";
             $discordmessage .= '***Post: *** ' . $postcontent . "\n";
             $discordmessage .= '***Motivo: *** ' . $reason . "\n";
-            $discordmessage .= "***Denunciado por: *** <{$config['domain']}/mod.php?/IP/{$ip}/page/1>";
+            $discordmessage .= "***Denunciado por: *** <{$config['domain']}/mod.php?/user_posts/ip/{$ip}>";
 
             discord($discordmessage);
         }
@@ -400,9 +429,11 @@ function handle_report()
     }
 }
 
-function handle_post()
+function handle_post(Context $ctx)
 {
-    global $config, $board, $mod, $pdo;
+    global $board, $mod, $pdo;
+
+    $config = $ctx->get('config');
 
     if (!isset($_POST['body'], $_POST['board'])) {
         error($config['error']['bot']);
@@ -452,6 +483,7 @@ function handle_post()
 
 
     $post['ip'] = get_ip_hash($_SERVER['REMOTE_ADDR']);
+    $post['ip_raw'] = $_SERVER['REMOTE_ADDR'];
 
     checkDNSBL();
 
@@ -466,38 +498,43 @@ function handle_post()
     // Check if banned, warned or nicenoticed
     checkBan($board['uri']);
 
-    // Check for CAPTCHA right after opening the board so the "return" link is in there
-    if ($config['hcaptcha']) {
-        if (!isset($_POST['h-captcha-response'])) {
-            error($config['error']['bot']);
+    try {
+        $provider = $config['captcha']['provider'];
+        $new_thread_capt = $config['captcha']['native']['new_thread_capt'];
+        $dynamic = $config['captcha']['dynamic'];
+
+        if ($provider === 'native') {
+            if ((!$new_thread_capt && !$post['op']) || ($new_thread_capt && $post['op'])) {
+                $query = $ctx->get(SecureImageCaptchaQuery::class);
+                $success = $query->verify($_POST['captcha_text'], $_POST['captcha_cookie']);
+
+                if (!$success) {
+                    error($config['error']['captcha']);
+                }
+            }
         }
+        elseif ($provider && (!$dynamic || $dynamic === $_SERVER['REMOTE_ADDR'])) {
+            $query = $ctx->get(RemoteCaptchaQuery::class);
+            $field = $query->responseField();
 
-        // Check what hCAPTCHA has to say...
-        $resp = json_decode(file_get_contents(sprintf(
-            'https://hcaptcha.com/siteverify?secret=%s&response=%s&remoteip=%s',
-            $config['hcaptcha_private'],
-            urlencode($_POST['h-captcha-response']),
-            $_SERVER['REMOTE_ADDR']
-        )), true);
+            if (!isset($_POST[$field])) {
+                error($config['error']['bot']);
+            }
 
-        if (!$resp['success']) {
-            error($config['error']['captcha']);
+            $response = $_POST[$field];
+
+            $ip = $dynamic ? null : $_SERVER['REMOTE_ADDR'];
+            $success = $query->verify($response, $ip);
+            if (!$success) {
+                error($config['error']['captcha']);
+            }
         }
-
-    }
-
-    if ($config['captcha']['post_captcha'] || ($post['op'] && $config['captcha']['thread_captcha'])) {
-        $ch = curl_init($config['captcha']['provider_check'] . "?" . http_build_query([
-            'mode' => 'check',
-            'text' => $_POST['captcha_text'],
-            'cookie' => $_POST['captcha_cookie']
-        ]));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-        $resp = json_decode(curl_exec($ch), true);
-
-        if (!$resp['success']) {
-            error($config['error']['captcha']);
-        }
+    } catch (RuntimeException $e) {
+        $ctx->get(LogDriver::class)->log(LogDriver::ERROR, "Captcha IO exception: {$e->getMessage()}");
+        error($config['error']['remote_io_error']);
+    } catch (JsonException $e) {
+        $ctx->get(LogDriver::class)->log(LogDriver::ERROR, "Bad JSON reply to captcha: {$e->getMessage()}");
+        error($config['error']['remote_io_error']);
     }
 
     if (!(($post['op'] && $_POST['post'] == $config['button_newtopic']) ||
@@ -505,14 +542,9 @@ function handle_post()
         error($config['error']['bot']);
     }
 
-    // Check the referrer
-    if ($config['referer_match'] !== false &&
-        (!isset($_SERVER['HTTP_REFERER']) || !preg_match($config['referer_match'], rawurldecode($_SERVER['HTTP_REFERER'])))) {
-        error($config['error']['referer']);
-    }
 
     if ($post['mod'] = isset($_POST['mod']) && $_POST['mod']) {
-        check_login(false);
+        check_login($ctx, false);
         if (!$mod) {
             // Liar. You're not a mod.
             error($config['error']['notamod']);
@@ -536,25 +568,6 @@ function handle_post()
         $mod = $post['mod'] = false;
     }
 
-    // some nasty shit
-    if (!$post['mod'] && !$config['turn_off_antispam']) {
-        $tempBoard = $board['uri'];
-        $extra_salt = null;
-		if (isset($_POST['active-page'])) {
-            if ($_POST['active-page'] === 'index') {
-				$extra_salt = $config['try_smarter'] && isset($_POST['page']) ? 0 - (int)$_POST['page'] : null;
-			} elseif ($_POST['active-page'] === 'ukko') {
-                $tempBoard = 'overboard';
-            } elseif ($_POST['active-page'] === 'thread' && isset($post['thread'])) {
-                $extra_salt = $post['thread'];
-            }
-        }
-
-        $post['antispam_hash'] = checkSpam([$tempBoard, $extra_salt]);
-        if ($post['antispam_hash'] === true) {
-            error($config['error']['spam']);
-        }
-    }
 
     if ($config['robot_enable'] && $config['robot_mute']) {
         checkMute();
@@ -562,7 +575,11 @@ function handle_post()
 
     //Check if thread exists
     if (!$post['op']) {
-        $query = prepare(sprintf("SELECT `sticky`,`locked`,`cycle`,`sage`,`slug` FROM ``posts_%s`` WHERE `id` = :id AND `thread` IS NULL LIMIT 1", $board['uri']));
+        $query = prepare(
+            sprintf("SELECT `sticky`,`locked`,`cycle`,`sage`,`slug`,`archive` FROM ``posts_%s`` 
+            WHERE `id` = :id AND `thread` IS NULL AND `archive` = 0 AND `shadow` = 0 LIMIT 1"
+            , $board['uri']
+        ));
         $query->bindValue(':id', $post['thread'], PDO::PARAM_INT);
         $query->execute() or error(db_error());
 
@@ -572,6 +589,16 @@ function handle_post()
         }
     } else {
         $thread = false;
+    }
+
+    /*if ($thread && $thread['archive']) {
+        error($config['error']['locked']);
+    }*/
+
+    // Check the referrer
+    if ($config['referer_match'] !== false &&
+        (!isset($_SERVER['HTTP_REFERER']) || !preg_match($config['referer_match'], rawurldecode($_SERVER['HTTP_REFERER'])))) {
+        error($config['error']['referer']);
     }
 
     // Check for an embed field
@@ -596,7 +623,14 @@ function handle_post()
                         break;
                     }
                     $_json = json_decode($json_str);
-                    $post['embed'] = json_encode(['title' => $_json->title, 'url' => $post['embed']], JSON_UNESCAPED_UNICODE);
+
+                    $thumbnail_url = isset($_json->thumbnail_url) ? $_json->thumbnail_url : null;
+
+                    $post['embed'] = json_encode([
+                        'title' => $_json->title,
+                        'url' => $post['embed'],
+                        'thumbnail' => $thumbnail_url,
+                    ], JSON_UNESCAPED_UNICODE);
                 } else {
                     $post['embed'] = json_encode(['title' => '', 'url' => $post['embed']]);
                 }
@@ -633,6 +667,10 @@ function handle_post()
 
     if ($config['hide_poster_id_thread'] && $post['op']) {
         $post['hideposterid'] = isset($_POST['hideposterid']);
+    }
+
+    if (\mb_strlen($_POST['password']) > 20) {
+        error(\sprintf($config['error']['toolong'], 'password'));
     }
 
     $post['name'] = !empty($_POST['name']) ? $_POST['name'] : $config['anonymous'];
@@ -845,7 +883,7 @@ function handle_post()
         if ($post['flag_iso']) {
             $post['flag_ext'] = $config['mod']['forcedflag_countries'][$post['flag_iso']];
         } else {
-            list($post['flag_iso'], $post['flag_ext']) = getMaxmind($_SERVER['REMOTE_ADDR']);
+            list($post['flag_iso'], $post['flag_ext']) = IP\fetch_maxmind($_SERVER['REMOTE_ADDR']);
         }
 
     }
@@ -902,14 +940,15 @@ function handle_post()
             // Add list of filenames
             $post['allhashes_filenames'][] = $file['filename'];
 
-            if ($file['is_an_image'] && $config['blockhash']['hashban'] && $blockhash = blockhash_hash_of_file($upload)) {
-                if (!verifyUnbannedHash($config, $blockhash)) {
-                    undoImage($post);
-                    error($config['error']['blockhash']);
-                }
-                $file['blockhash'] = $blockhash;
-            }
+			/* blockhash hash */
+			if ($file['is_an_image'] && $config['blockhash']['hashban'] && $blockhash = blockhash_hash_of_file($upload)) {
+				if (!verifyUnbannedHash($config, $blockhash)) {
+					undoImage($post);
+					error($config['error']['blockhash']);
+				}
 
+				$file['blockhash'] = $blockhash;
+			}
         }
 
 
@@ -929,7 +968,7 @@ function handle_post()
     if (!hasPermission($config['mod']['bypass_filters'], $board['uri'])) {
         require_once 'inc/filters.php';
 
-        do_filters($post, $config);
+        do_filters($post, $ctx);
     }
 
     if ($post['has_file']) {
@@ -960,44 +999,45 @@ function handle_post()
                 }
 
 
-
-                if ($config['convert_auto_orient'] && ($size[2] == IMAGETYPE_JPEG)) {
+                if ($config['convert_auto_orient'] && $size[2] === IMAGETYPE_JPEG && !$config['redraw_image']) {
                     // The following code corrects the image orientation.
                     // Currently only works with the 'convert' option selected but it could easily be expanded to work with the rest if you can be bothered.
-                    if (!($config['redraw_image'])) {
-                        if (in_array($config['thumb_method'], array('convert', 'convert+gifsicle', 'gm', 'gm+gifsicle'))) {
-                            $exif = @exif_read_data($file['tmp_name']);
-                            $gm = in_array($config['thumb_method'], array('gm', 'gm+gifsicle'));
-                            if (isset($exif['Orientation']) && $exif['Orientation'] != 1) {
-                                if ($config['convert_manual_orient']) {
-                                    $error = shell_exec_error(($gm ? 'gm ' : '') . 'convert ' .
-                                        escapeshellarg($file['tmp_name']) . ' ' .
-                                        ImageConvert::jpeg_exif_orientation(false, $exif) . ' ' .
-                                        (
-                                            $config['strip_exif'] ? '+profile "*"' :
-                                            ($config['use_exiftool'] ? '' : '+profile "*"')
-                                        ) . ' ' .
-                                        escapeshellarg($file['tmp_name']));
-                                    if ($config['use_exiftool'] && !$config['strip_exif']) {
-                                        if ($exiftool_error = shell_exec_error(
-                                            'exiftool -overwrite_original -q -q -orientation=1 -n ' .
-                                                escapeshellarg($file['tmp_name'])
-                                        )) {
-                                            error(_('exiftool failed!'), null, $exiftool_error);
-                                        }
-                                    } else {
-                                        // TODO: Find another way to remove the Orientation tag from the EXIF profile
-                                        // without needing `exiftool`.
+                    $supported_methods = ['convert', 'convert+gifsicle', 'gm', 'gm+gifsicle'];
+                    if (in_array($config['thumb_method'], $supported_methods)) {
+                        $gm = str_starts_with($config['thumb_method'], 'gm');
+                        $exif = @exif_read_data($file['tmp_name']);
+
+                        if (!empty($exif['Orientation']) && $exif['Orientation'] != 1) {
+                            $command = $gm ? 'gm convert ' : 'convert ';
+
+                            if ($config['convert_manual_orient']) {
+                                $command .= escapeshellarg($file['tmp_name']) . ' ' .
+                                ImageConvert::jpeg_exif_orientation(false, $exif) . ' ' .
+                                (
+                                    $config['strip_exif'] ? '+profile "*"' :
+                                    ($config['use_exiftool'] ? '' : '+profile "*"')
+                                ) . ' ' .
+                                escapeshellarg($file['tmp_name']);
+                                $error = shell_exec_error($command);
+
+                                if ($config['use_exiftool'] && !$config['strip_exif']) {
+                                    $exiftool_command = 'exiftool -overwrite_original -q -q -orientation=1 -n ' . escapeshellarg($file['tmp_name']);
+                                    $exiftool_error = shell_exec_error($exiftool_command);
+
+                                    if ($exiftool_error) {
+                                        error(_('exiftool failed!'), null, $exiftool_error);
                                     }
-                                } else {
-                                    $error = shell_exec_error(($gm ? 'gm ' : '') . 'convert ' .
-                                            escapeshellarg($file['tmp_name']) . ' -auto-orient ' . escapeshellarg($file['tmp_name']));
                                 }
-                                if ($error) {
-                                    error(_('Could not auto-orient image!'), null, $error);
-                                }
-                                $size = @getimagesize($file['tmp_name']);
+                            } else {
+                                $command .= escapeshellarg($file['tmp_name']) . ' -auto-orient ' . escapeshellarg($file['tmp_name']);
+                                $error = shell_exec_error($command);
                             }
+
+                            if ($error) {
+                                error(_('Could not auto-orient image!'), null, $error);
+                            }
+                            clearstatcache(true, $file['tmp_name']);
+                            $size = @getimagesize($file['tmp_name']);
                         }
                     }
                 }
@@ -1050,24 +1090,17 @@ function handle_post()
 
                     $thumb->_destroy();
                 }
-
-                if ($config['redraw_image'] || (!array_key_exists('exif_stripped', $file) && $config['strip_exif'] && ($file['extension'] == 'jpg' || $file['extension'] == 'jpeg' || $file['extension'] == 'webp' || $file['extension'] == 'png'))) {
-                    if (!$config['redraw_image'] && $config['use_exiftool']) {
-                        if ($error = shell_exec_error('exiftool -overwrite_original -ignoreMinorErrors -q -q -all= -Orientation ' .
-                            escapeshellarg($file['tmp_name']))) {
+                
+                if ($config['redraw_image']) {
+                    $image->to($file['file_path']);
+                    $dont_copy_file = true;
+                } elseif ($config['strip_exif'] && $config['use_exiftool']) {
+                    try {
+                        $file['size'] = strip_image_metadata($file['tmp_name']);
+                        } catch (RuntimeException $e) {
+                            $ctx->get(LogDriver::class)->log(LogDriver::ERROR, "Could not strip image metadata: {$e->getMessage()}");
                             error(_('Could not strip EXIF metadata!'), null, $error);
-                        } else {
-                            clearstatcache(true, $file['tmp_name']);
-                            $ret = filesize($file['tmp_name']);
-                            if ($ret === false) {
-                                error(_('Could not calculate file size!'), null, $error);
-                            }
-                            $file['size'] = $ret;
                         }
-                    } else {
-                        $image->to($file['file_path']);
-                        $dont_copy_file = true;
-                    }
                 }
                 $image->destroy();
             } else {
@@ -1100,9 +1133,7 @@ function handle_post()
 						    $post['body_nomarkup'] .= "<tinyboard ocr image $key>" . htmlspecialchars($txt) . "</tinyboard>";
 					    }
 				    } catch (RuntimeException $e) {
-					    if ($config['syslog']) {
-						    _syslog(LOG_ERR, "Could not OCR image: {$e->getMessage()}");
-					    }
+                        $ctx->get(LogDriver::class)->log(LogDriver::ERROR, "Could not OCR image: {$e->getMessage()}");
                     }
                 }
             }
@@ -1219,6 +1250,7 @@ function handle_post()
         undoImage((array)$post);
         error($error);
     }
+
     $post = (array)$post;
 
     $post['num_files'] = sizeof($post['files']);
@@ -1227,11 +1259,10 @@ function handle_post()
     $post['slug'] = slugify($post);
 
 
-    insertFloodPost($post);
 
     // Handle cyclical threads
     if (!$post['op'] && isset($thread['cycle']) && $thread['cycle']) {
-        deleteCyclicalPosts($board['uri'], $post['thread'], $config['cycle_limit']);
+        deleteCyclicalPosts($ctx, $board['uri'], $post['thread'], $config['cycle_limit']);
     }
 
     if (isset($post['antispam_hash'])) {
@@ -1293,16 +1324,16 @@ function handle_post()
             }
         }
     } else {
-        $redirect = $root . $board['dir'] . $config['file_index'];
+        $redirect = $root . $board['dir'];
     }
 
 
     buildThread($post['op'] ? $id : $post['thread']);
 
-    if ($config['syslog']) {
-        _syslog(LOG_INFO, 'New post: /' . $board['dir'] . $config['dir']['res'] .
-            link_for($post) . (!$post['op'] ? '#' . $id : ''));
-    }
+	$ctx->get(LogDriver::class)->log(
+		LogDriver::INFO,
+		'New post: /' . $board['dir'] . $config['dir']['res'] . link_for($post) . (!$post['op'] ? '#' . $id : '')
+	);
 
     if (!$post['mod']) {
         header('X-Associated-Content: "' . $redirect . '"');
@@ -1324,7 +1355,7 @@ function handle_post()
     }
 
     if ($post['op']) {
-        clean($id);
+        clean($ctx, $id);
     }
 
     event('post-after', $post);
@@ -1337,16 +1368,16 @@ function handle_post()
     }
 
     if ($post['op']) {
-        rebuildThemes('post-thread', $board['uri']);
+        Vichan\Functions\Theme\rebuild_themes('post-thread', $board['uri']);
     } else {
-        rebuildThemes('post', $board['uri']);
+        Vichan\Functions\Theme\rebuild_themes('post', $board['uri']);
     }
 
 }
 
-function handle_appeal()
+function handle_appeal(Context $ctx)
 {
-    global $config;
+    $config = $ctx->get('config');
 
     if (!isset($_POST['ban_id'])) {
         error($config['error']['bot']);
@@ -1354,7 +1385,7 @@ function handle_appeal()
 
     $ban_id = (int)$_POST['ban_id'];
 
-    $ban = Bans::findSingle($_SERVER['REMOTE_ADDR'], $ban_id, $config['require_ban_view'], false, $config['bcrypt_ip_addresses']);
+    $ban = Bans::findSingle($_SERVER['REMOTE_ADDR'], $ban_id, $config['require_ban_view'], false, $config['bcrypt_ip_addresses'], $config['auto_maintenance']);
 
     if (empty($ban)) {
         error(_("That ban doesn't exist or is not for you."));
@@ -1396,9 +1427,9 @@ function handle_appeal()
 
 }
 
-function handle_archive()
+function handle_archive(Context $ctx)
 {
-    global $config, $board;
+    $config = $ctx->get('config');
 
     if (!isset($_POST['board'], $_POST['thread_id'])) {
         error($config['error']['bot']);
@@ -1418,8 +1449,9 @@ function handle_archive()
 
 }
 
+$ctx = Vichan\build_context($config);
 
-if ($config['captcha']['post_captcha'] || $config['captcha']['thread_captcha'] || $config['captcha']['report_captcha']) {
+if ($config['captcha']['provider'] === 'native' && ($config['captcha']['native']['new_thread_capt'] || $config['captcha']['native']['report_captcha'])) {
     session_start();
     if (!isset($_POST['captcha_cookie']) && isset($_SESSION['captcha_cookie'])) {
         $_POST['captcha_cookie'] = $_SESSION['captcha_cookie'];
@@ -1428,15 +1460,15 @@ if ($config['captcha']['post_captcha'] || $config['captcha']['thread_captcha'] |
 
 
 if (isset($_POST['delete'])) {
-    handle_delete();
+    handle_delete($ctx);
 } elseif (isset($_POST['report'])) {
-    handle_report();
+    handle_report($ctx);
 } elseif (isset($_POST['post'])) {
-    handle_post();
+    handle_post($ctx);
 } elseif (isset($_POST['appeal'])) {
-    handle_appeal();
+    handle_appeal($ctx);
 } elseif (isset($_POST['archive_vote'])) {
-    handle_archive();
+    handle_archive($ctx);
 } else {
     if (!file_exists($config['has_installed'])) {
         header('Location: install.php', true, $config['redirect_http']);

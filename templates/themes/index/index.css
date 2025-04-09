@@ -35,6 +35,3 @@ div.ban:nth-child(3) ul {
 fieldset {
     border: 0;
 }
-div.ban:nth-child(5) ul{
-    list-style-type: none;
-}

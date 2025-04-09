@@ -15,7 +15,7 @@
     {% if geral %}
         <td class="minimal">
             {% if mod|hasPermission(config.mod.show_ip_modlog) %}
-                <a href="?/IP/{{ log.ip }}/page/1">{{ log.ip }}</a>
+                <a href="?/user_posts/ip/{{ log.ip }}">{{ log.ip }}</a>
             {% else %}
                 <em>{% trans %}hidden{% endtrans %}</em>
             {% endif %}

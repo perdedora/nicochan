@@ -305,13 +305,14 @@ document.addEventListener('ajax_after_post', function () {
 document.addEventListener('DOMContentLoaded', () => {
 	FileSelector.init(max_images, max_filesize);
 
-	window.addEventListener('quick-reply', () => {
-		if (localStorage.file_dragdrop === 'false' || !(window.URL.createObjectURL && window.File)) return;
+});
 
-		const quickReplyContainer = document.querySelector('#quick-reply');
-		if (quickReplyContainer) {
-			FileSelector.attachHandlers(quickReplyContainer);
-			FileSelector.updateAllThumbnails();
-		}
-	});
+window.addEventListener('quick-reply', () => {
+	if (localStorage.file_dragdrop === 'false' || !(window.URL.createObjectURL && window.File)) return;
+
+	const quickReplyContainer = document.getElementById('quick-reply');
+	if (quickReplyContainer) {
+		FileSelector.attachHandlers(quickReplyContainer);
+		FileSelector.updateAllThumbnails();
+	}
 });

@@ -352,8 +352,8 @@ function citeReply(id) {
 function togglePassword() {
     const togglePassword = document.querySelector("#togglePassword");
     if (!togglePassword) return;
-
     const password = document.querySelector("#pwd-field #password");
+
     togglePassword.addEventListener("click", function () {
         const type = password.getAttribute("type") === "password" ? "text" : "password";
         password.setAttribute("type", type);
@@ -461,7 +461,7 @@ function doreport (form) {
 }
 
 function handleArchiveMessage() {
-    handleSortable();
+    //handleSortable();
     const voteLink = document.querySelectorAll('.vote-link');
     if (voteLink) {
         voteLink.forEach((link) => {
@@ -508,6 +508,7 @@ function createModRedirectButton() {
     if (typeof localStorage.is_mod === 'undefined' || window.location.pathname === '/mod.php') return;
 
     const dirLinks = document.querySelectorAll('span.dir-links');
+
     dirLinks?.forEach(dirLink => {
         Vichan.createElement('a', {
             innerHTML: `&nbsp;&nbsp;${_('[Moderate]')}`,
@@ -525,14 +526,13 @@ function createModRedirectButton() {
 var file_post = "{{ config.file_post }}";
 var max_images = {{ config.max_images }};
 var button_reply = "{{ config.button_reply }}";
-var post_captcha = "{{ config.captcha.post_captcha ? 'true' : 'false' }}";
-var provider_captcha = "{{ config.captcha.provider_get }}";
+var post_captcha = "{{ config.captcha.native.new_thread_capt ? 'false' : 'true' }}";
+var provider_captcha = "{{ config.captcha.native.provider_get }}";
 var post_date = "{{ config.post_date_js }}"
 var configRoot = "{{ config.root }}";
 var max_filesize = {{ config.max_filesize }};
 var max_body = {{ config.max_body }};
 var forced_anon = "{{ config.field_disable_name ? 'true' : 'false' }}";
-var favicon_url = "{{ config.url_favicon }}";
 
 document.addEventListener("securitypolicyviolation", () => {
     console.log('(⇀‸↼‶) por que você está fazendo isso?');    

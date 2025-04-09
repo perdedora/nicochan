@@ -46,7 +46,7 @@
 		public function buildUkko2 ($mod = false)
 		{
 			global $board, $config;
-			$ukkoSettings = themeSettings('ukko2');
+			$ukkoSettings = Vichan\Functions\Theme\theme_settings('ukko2');
  			$queries = [];
 			$threads = [];
 			$boards = [];
@@ -150,7 +150,7 @@
 			return "SELECT *, `id` AS `thread_id`, " .
 				"(SELECT COUNT(`id`) FROM ``posts_$board`` WHERE `thread` = `thread_id`) AS `reply_count`, " .
 				"(SELECT SUM(`num_files`) FROM ``posts_$board`` WHERE `thread` = `thread_id` AND `num_files` IS NOT NULL) AS `image_count`, " .
-				"'$board' AS `board` FROM ``posts_$board`` WHERE `thread` IS NULL AND `shadow` = 0";
+				"'$board' AS `board` FROM ``posts_$board`` WHERE `thread` IS NULL AND `shadow` = 0 AND `archive` = 0";
 		}
 
 		private function generateRecentPosts($threads, $mod = false)
@@ -162,6 +162,10 @@
 
 				if ($board['uri'] !== $post['board']) {
 					openBoard($post['board']);
+				}
+
+				if (!isset($board['dir'])) {
+					$board['dir'] = sprintf($config['board_path'], $board['uri']);
 				}
 
 				if ($post['reply_count'] >= $config['noko50_min']) {
@@ -241,6 +245,7 @@
 				'page' => $isUkko ? 'ukko' : 'catalog',
 				'isukko' => $isUkko,
 				'reports' => $mod ? getCountReports() : false,
+				'capcodes' => $mod ? availableCapcodes($config['mod']['capcode'], $mod['type']) : null,
 				'boards' => $isUkko ? $boardsForUkko : null,
 				'mod' => $mod
 			]);

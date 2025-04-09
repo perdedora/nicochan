@@ -102,7 +102,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     const optionsButton = Vichan.createElement('span', {
       idName: 'js-buttons',
-      innerHTML: `<a id='options-toggle' title='${_("Options")}'><i class='fa fa-gear'></i></a>`,
+      innerHTML: `<a id='options-toggle' title='${_("Options")}'><i class='fa fa-gear clickable-gear'></i></a>`,
       onClick: Options.show
     });
 

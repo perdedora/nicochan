@@ -18,7 +18,7 @@ SET time_zone = "+00:00";
 /*!40101 SET NAMES utf8mb4 */;
 
 --
--- Database: `public_nicochan`
+-- Database: `nicochan`
 --
 
 -- --------------------------------------------------------
@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS `antispam` (
   `expires` int(11) DEFAULT NULL,
   `passed` smallint(6) DEFAULT 0 NOT NULL,
   `shadow` int(1) DEFAULT 0 NOT NULL,
+  `archive` int(1) DEFAULT 0 NOT NULL,
   PRIMARY KEY (`hash`),
   KEY `board` (`board`,`thread`),
   KEY `expires` (`expires`)
@@ -43,18 +44,16 @@ CREATE TABLE IF NOT EXISTS `antispam` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `archive_b`
+-- Table structure for table `archive`
 --
 
-CREATE TABLE IF NOT EXISTS `archive_b` (
-  `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+CREATE TABLE IF NOT EXISTS `archive` (
+  `thread_id` int(11) NOT NULL,
+  `board` varchar(58) NOT NULL,
   `snippet` text NOT NULL,
   `lifetime` int(11) NOT NULL,
-  `files` mediumtext NOT NULL,
-  `featured` int(1) NOT NULL,
-  `mod_archived` int(1) NOT NULL,
-  `votes` int(10) UNSIGNED NOT NULL,
-  UNIQUE KEY `id` (`id`),
+  `created_at` int(11) NOT NULL,
+  PRIMARY KEY (`board`, `thread_id`),
   KEY `lifetime` (`lifetime`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -164,6 +163,7 @@ CREATE TABLE IF NOT EXISTS `cites` (
   `target_board` varchar(58) NOT NULL,
   `target` int(11) NOT NULL,
   `shadow` int(1) DEFAULT 0 NOT NULL,
+  `archive` int(1) DEFAULT 0 NOT NULL,
   KEY `target` (`target_board`,`target`),
   KEY `post` (`board`,`post`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -193,6 +193,7 @@ CREATE TABLE IF NOT EXISTS `filehashes` (
   `post` int(11) NOT NULL,
   `filehash` text CHARACTER SET ascii NOT NULL,
   `shadow` int(1) DEFAULT 0 NOT NULL,
+  `archive` int(1) DEFAULT 0 NOT NULL,
   PRIMARY KEY (`id`),
   KEY `thread_id` (`thread`),
   KEY `post_id` (`post`)
@@ -403,6 +404,7 @@ CREATE TABLE IF NOT EXISTS `posts_b` (
   `sage` int(1) DEFAULT 0 NOT NULL,
   `hideid` int(1) NOT NULL,
   `shadow` int(1) DEFAULT 0 NOT NULL,
+  `archive` int(1) DEFAULT 0 NOT NULL,
   `embed` text,
   `slug` varchar(256) DEFAULT NULL,
   `flag_iso` varchar(6) DEFAULT NULL,
@@ -531,7 +533,21 @@ CREATE TABLE IF NOT EXISTS `hashlist` (
   `hash` binary(64) DEFAULT NULL,
   `reason` text,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `hashfile_UN` (`hash`)
+  UNIQUE KEY `hashfile_pk` (`hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `whitelist_region`
+--
+
+CREATE TABLE IF NOT EXISTS `whitelist_region` (
+ `id` int(10) AUTO_INCREMENT,
+ `ip` varchar(39) NOT NULL,
+ `ip_hash` varchar(69) NOT NULL,
+  PRIMARY KEY (id, ip),
+  UNIQUE KEY `whitelistreg_pk` (`ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------

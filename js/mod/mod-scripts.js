@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", function () {
 	handleMoveForm();
 	doModMenu();
 	rebuildPageEvents();
+	toggleInfoField();
 
 	['BanFormID', 'NicenoticeFormID', 'WarningFormID', 'HashbanFormID'].forEach(formId => {
 		handlePremade(formId, `${formId.toLowerCase()}-reasons-data`);
@@ -15,8 +16,8 @@ document.addEventListener("DOMContentLoaded", function () {
 		localStorage.setItem('is_mod', 'true');
 	}
 
-	const lastLinks = document.querySelectorAll('.dir-links a:last-of-type');
-	lastLinks?.forEach(el => {
+	const lastLink = document.querySelectorAll('.dir-links a:last-of-type');
+	lastLink?.forEach(el => {
 		const hideCheckbox = createCheckboxHide(el);
 		checkboxes.push(hideCheckbox);
 		hideCheckbox.addEventListener('change', hideModTools);
@@ -32,6 +33,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 document.addEventListener('new_post_js', (event) => {
 	doModMenu(event.detail.detail);
+	toggleInfoField(event.detail.detail);
 });
 
 function createCheckboxHide(lastLink) {
@@ -78,6 +80,7 @@ function hideModTools(event) {
 		const styleHide = document.getElementById('mod-hide-controls');
 		styleHide?.remove();
 	}
+
 }
 
 function rebuildPageEvents() {
@@ -141,6 +144,26 @@ function handleMoveForm() {
 			submitButton.disabled = true;
 		});
 	}
+}
+
+function toggleInfoField(sel = document) {
+    sel.querySelectorAll('.arrow-indicator').forEach(function(arrow) {
+        arrow.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            const container = arrow.parentElement;
+            const hideDefault = container.querySelector('.hide-default');
+
+            hideDefault.classList.toggle('hidden');
+            if (hideDefault.classList.contains('hidden')) {
+                arrow.classList.remove('fa-arrow-left');
+                arrow.classList.add('fa-arrow-right');
+            } else {
+                arrow.classList.remove('fa-arrow-right');
+                arrow.classList.add('fa-arrow-left');
+            }
+        });
+    });
 }
 
 function doModMenu(postElement = document) {
@@ -266,8 +289,10 @@ function doModMenu(postElement = document) {
 		if (updatedRect.right > windowWidth) {
 			menuContent.style.right = `${windowWidth - updatedRect.right}px`;
 		}
+
 		if (updatedRect.left < 0) {
-			menuContent.style.width = '160px';
+			menuContent.style.left = '0';
+			menuContent.style.width = '165px';
 		}
 	}
 
@@ -290,6 +315,7 @@ function doModMenu(postElement = document) {
 			incrementClickCount(clickCounts, action);
 			renderAllFrequentlyUsed(clickCounts, posts);
 		}
+
 		if (confirmMessage) {
 			window.location.href = href;
 		} else {

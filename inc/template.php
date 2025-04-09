@@ -88,8 +88,8 @@ class Tinyboard extends Twig\Extension\AbstractExtension
 			new Twig\TwigFilter('hasPermission', 'twig_hasPermission_filter'),
 			new Twig\TwigFilter('strftime', 'twig_strftime_filter'),
 			new Twig\TwigFilter('poster_id', 'poster_id'),
-			new Twig\TwigFilter('ago', 'ago'),
-			new Twig\TwigFilter('until', 'until'),
+			new Twig\TwigFilter('ago', 'Vichan\Functions\Format\ago'),
+			new Twig\TwigFilter('until', 'Vichan\Functions\Format\until'),
 			new Twig\TwigFilter('bidi_cleanup', 'bidi_cleanup'),
 			new Twig\TwigFilter('addslashes', 'addslashes'),
 			new Twig\TwigFilter('human_ip', 'getHumanReadableIP')

@@ -4,14 +4,20 @@
  *  Copyright (c) 2010-2013 Tinyboard Development Group
  */
 
-use Vichan\Functions\Net;
+use Vichan\Context;
+use Vichan\Data\{ReportQueries, ArchiveQueries, FileSystem, ShadowQueries, UserPostQueries, IpNoteQueries};
+use Vichan\Functions\{Format, Net};
+use Vichan\Data\Driver\{CacheDriver, LogDriver};
+use Vichan\Controllers\Archive\ArchiveManager;
+use Vichan\Controllers\Shadow\ShadowManager;
+use Vichan\View\ArchiveTemplating;
 
 defined('TINYBOARD') or exit;
 
 function mod_page($title, $template, $args, $subtitle = false) {
 	global $config, $mod;
 
-	echo Element('page.html', array(
+	echo Element('page.html', [
 		'config' => $config,
 		'mod' => $mod,
 		'hide_dashboard_link' => $template == 'mod/dashboard.html',
@@ -25,12 +31,13 @@ function mod_page($title, $template, $args, $subtitle = false) {
 					$args
 				)
 			)
-		)
+		]
 	);
 }
 
-function mod_login($redirect = false) {
-	global $config;
+function mod_login(Context $ctx, $redirect = false) {
+
+	$config = $ctx->get('config');
 
 	$args = [];
 
@@ -71,49 +78,56 @@ function mod_login($redirect = false) {
 	mod_page(_('Login'), 'mod/login.html', $args);
 }
 
-function mod_confirm($request) {
-	mod_page(_('Confirm action'), 'mod/confirm.html', array('request' => $request, 'token' => make_secure_link_token($request)));
+function mod_confirm(Context $ctx, $request) {
+	mod_page(
+		_('Confirm action'),
+		'mod/confirm.html', [
+			'request' => $request,
+			'token' => make_secure_link_token($request)
+		]
+	);
 }
 
-function mod_logout() {
-	global $config;
+function mod_logout(Context $ctx) {
+	$config = $ctx->get('config');
+
 	destroyCookies();
 	modLog("Se deslogou");
 
 	header('Location: ?/', true, $config['redirect_http']);
 }
 
-function mod_dashboard() {
-	global $config, $mod;
+function mod_dashboard(Context $ctx) {
+	global $mod;
+
+	$config = $ctx->get('config');
+	$report_queries = $ctx->get(ReportQueries::class);
 
 	$args = array();
 
 	$args['boards'] = listBoards();
 
 	if (hasPermission($config['mod']['noticeboard'])) {
-		if (!$config['cache']['enabled'] || !$args['noticeboard'] = cache::get('noticeboard_preview')) {
+		if (!$args['noticeboard'] = $ctx->get(CacheDriver::class)->get('noticeboard_preview')) {
 			$query = prepare("SELECT ``noticeboard``.*, `username` FROM ``noticeboard`` LEFT JOIN ``mods`` ON ``mods``.`id` = `mod` WHERE ``noticeboard``.`reply` IS NULL ORDER BY `id` DESC LIMIT :limit");
 			$query->bindValue(':limit', $config['mod']['noticeboard_dashboard'], PDO::PARAM_INT);
 			$query->execute() or error(db_error($query));
 			$args['noticeboard'] = $query->fetchAll(PDO::FETCH_ASSOC);
 
-			if ($config['cache']['enabled'])
-				cache::set('noticeboard_preview', $args['noticeboard']);
+			$ctx->get(CacheDriver::class)->set('noticeboard_preview', $args['noticeboard']);
 		}
 	}
 
-	if (!$config['cache']['enabled'] || !$args['unread_pms'] = cache::get('pm_unreadcount_' . $mod['id'])) {
+	if (!$args['unread_pms'] = $ctx->get(CacheDriver::class)->get('pm_unreadcount_' . $mod['id'])) {
 		$query = prepare('SELECT COUNT(1) FROM ``pms`` WHERE `to` = :id AND `unread` = 1');
 		$query->bindValue(':id', $mod['id']);
 		$query->execute() or error(db_error($query));
 		$args['unread_pms'] = $query->fetchColumn();
 
-		if ($config['cache']['enabled'])
-			cache::set('pm_unreadcount_' . $mod['id'], $args['unread_pms']);
+		$ctx->get(CacheDriver::class)->set('pm_unreadcount_' . $mod['id'], $args['unread_pms']);
 	}
 
-	$query = query('SELECT COUNT(1) FROM ``reports``') or error(db_error($query));
-	$args['reports'] = $query->fetchColumn();
+	$args['reports'] = $report_queries->getCount();
 
 	// Counter for number of appeals
 	$query = query('SELECT COUNT(1) FROM ``ban_appeals`` WHERE ``denied`` = 0') or error(db_error($query));
@@ -124,8 +138,8 @@ function mod_dashboard() {
 	mod_page(_('Dashboard'), 'mod/dashboard.html', $args);
 }
 
-function mod_search_redirect() {
-	global $config;
+function mod_search_redirect(Context $ctx) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['search']))
 		error($config['error']['noaccess']);
@@ -147,8 +161,9 @@ function mod_search_redirect() {
 	}
 }
 
-function mod_search($type, $search_query_escaped, $page_no = 1) {
-	global $pdo, $config;
+function mod_search(Context $ctx, $type, $search_query_escaped, $page_no = 1) {
+	global $pdo;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['search']))
 		error($config['error']['noaccess']);
@@ -302,8 +317,10 @@ function mod_search($type, $search_query_escaped, $page_no = 1) {
 	));
 }
 
-function mod_edit_board($boardName) {
-	global $board, $config;
+function mod_edit_board(Context $ctx, $boardName) {
+	global $board;
+	$config = $ctx->get('config');
+	$cache = $ctx->get(CacheDriver::class);
 
 	if (!openBoard($boardName))
 		error($config['error']['noboard']);
@@ -321,17 +338,14 @@ function mod_edit_board($boardName) {
 			$query->execute() or error(db_error($query));
 
 			if ($config['cache']['enabled']) {
-				cache::delete('board_' . $board['uri']);
-				cache::delete('all_boards');
+				$cache->delete('board_' . $board['uri']);
+				$cache->delete('all_boards');
 			}
 
 			modLog('Deleted board: ' . sprintf($config['board_abbreviation'], $board['uri']), false);
 
 			// Delete posting table
-			$query = query(sprintf('DROP TABLE IF EXISTS ``posts_%s``', $board['uri'])) or error(db_error());
-
-			// Delete archive table
-			$query = query(sprintf('DROP TABLE IF EXISTS ``archive_%s``', $board['uri'])) or error(db_error());
+			query(sprintf('DROP TABLE IF EXISTS ``posts_%s``', $board['uri'])) or error(db_error());
 
 			// Clear reports
 			$query = prepare('DELETE FROM ``reports`` WHERE `board` = :id');
@@ -392,11 +406,11 @@ function mod_edit_board($boardName) {
 		}
 
 		if ($config['cache']['enabled']) {
-			cache::delete('board_' . $board['uri']);
-			cache::delete('all_boards');
+			$cache->delete('board_' . $board['uri']);
+			$cache->delete('all_boards');
 		}
 
-		rebuildThemes('boards');
+		Vichan\Functions\Theme\rebuild_themes('boards');
 
 		header('Location: ?/', true, $config['redirect_http']);
 	} else {
@@ -407,8 +421,9 @@ function mod_edit_board($boardName) {
 	}
 }
 
-function mod_new_board() {
-	global $config, $board;
+function mod_new_board(Context $ctx) {
+	global $board;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['newboard']))
 		error($config['error']['noaccess']);
@@ -422,6 +437,7 @@ function mod_new_board() {
 
 		if (!preg_match('/^' . $config['board_regex'] . '$/u', $_POST['uri']))
 			error(sprintf($config['error']['invalidfield'], 'URI'));
+
 
 		$bytes = 0;
 		$chars = preg_split('//u', $_POST['uri'], -1, PREG_SPLIT_NO_EMPTY);
@@ -470,18 +486,14 @@ function mod_new_board() {
 
 		query($query) or error(db_error());
 
-		// Create Archive Table in DB
-		$query = str_replace('%s', $board['uri'], file_get_contents($config['dir']['template'].'/archive.sql'));
-		query($query) or error(db_error());
 
-
-		if ($config['cache']['enabled'])
-			cache::delete('all_boards');
+		$cache = $ctx->get(CacheDriver::class);
+		$cache->delete('all_boards');
 
 		// Build the board
 		buildIndex();
 
-		rebuildThemes('boards');
+		Vichan\Functions\Theme\rebuild_themes('boards');
 
 		header('Location: ?/' . $board['uri'] . '/' . $config['file_index'], true, $config['redirect_http']);
 	}
@@ -489,8 +501,10 @@ function mod_new_board() {
 	mod_page(_('New board'), 'mod/board.html', array('new' => true, 'token' => make_secure_link_token('new-board')));
 }
 
-function mod_noticeboard($page_no = 1) {
-	global $config, $pdo, $mod;
+function mod_noticeboard(Context $ctx, $page_no = 1) {
+	global $pdo, $mod;
+
+	$config = $ctx->get('config');
 
 	if ($page_no < 1)
 		error($config['error']['404']);
@@ -515,8 +529,10 @@ function mod_noticeboard($page_no = 1) {
 
 		$is_reply = isset($_POST['thread']);
 
-		if ($config['cache']['enabled'] && !$is_reply)
-			cache::delete('noticeboard_preview');
+		if (!$is_reply) {
+			$cache = $ctx->get(CacheDriver::class);
+			$cache->delete('noticeboard_preview');
+		}
 
 		modLog('Posted a noticeboard entry');
 
@@ -554,8 +570,8 @@ function mod_noticeboard($page_no = 1) {
 	));
 }
 
-function mod_noticeboard_delete($id) {
-	global $config;
+function mod_noticeboard_delete(Context $ctx, $id) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['noticeboard_delete']))
 			error($config['error']['noaccess']);
@@ -566,14 +582,14 @@ function mod_noticeboard_delete($id) {
 
 	modLog('Deleted a noticeboard entry');
 
-	if ($config['cache']['enabled'])
-		cache::delete('noticeboard_preview');
+	$cache = $ctx->get(CacheDriver::class);
+	$cache->delete('noticeboard_preview');
 
 	header('Location: ?/noticeboard', true, $config['redirect_http']);
 }
 
-function mod_noticeboard_view($id) {
-	global $config;
+function mod_noticeboard_view(Context $ctx, $id) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['noticeboard_thread']))
 			error($config['error']['noaccess']);
@@ -606,8 +622,10 @@ function mod_noticeboard_view($id) {
 	));
 }
 
-function mod_news($page_no = 1) {
-	global $config, $pdo, $mod;
+function mod_news(Context $ctx, $page_no = 1) {
+	global $pdo, $mod;
+
+	$config = $ctx->get('config');
 
 	if ($page_no < 1)
 		error($config['error']['404']);
@@ -628,7 +646,7 @@ function mod_news($page_no = 1) {
 
 		modLog('Posted a news entry');
 
-		rebuildThemes('news');
+		Vichan\Functions\Theme\rebuild_themes('news');
 
 		header('Location: ?/edit_news#' . $pdo->lastInsertId(), true, $config['redirect_http']);
 	}
@@ -653,8 +671,8 @@ function mod_news($page_no = 1) {
 	mod_page(_('News'), 'mod/news.html', array('news' => $news, 'count' => $count, 'token' => make_secure_link_token('edit_news')));
 }
 
-function mod_news_delete($id) {
-	global $config;
+function mod_news_delete(Context $ctx, $id) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['news_delete']))
 			error($config['error']['noaccess']);
@@ -668,8 +686,8 @@ function mod_news_delete($id) {
 	header('Location: ?/edit_news', true, $config['redirect_http']);
 }
 
-function mod_log($page_no = 1) {
-	global $config;
+function mod_log(Context $ctx, $page_no = 1) {
+	$config = $ctx->get('config');
 
 	if ($page_no < 1)
 		error($config['error']['404']);
@@ -693,8 +711,8 @@ function mod_log($page_no = 1) {
 	mod_page(_('Moderation log'), 'mod/log.html', array('logs' => $logs, 'count' => $count));
 }
 
-function mod_user_log($username, $page_no = 1) {
-	global $config;
+function mod_user_log(Context $ctx, $username, $page_no = 1) {
+	$config = $ctx->get('config');
 
 	if ($page_no < 1)
 		error($config['error']['404']);
@@ -720,8 +738,8 @@ function mod_user_log($username, $page_no = 1) {
 	mod_page(_('Moderation log'), 'mod/log.html', array('logs' => $logs, 'count' => $count, 'username' => $username));
 }
 
-function mod_board_log($board, $page_no = 1, $hide_names = false, $public = false) {
-	global $config;
+function mod_board_log(Context $ctx, $board, $page_no = 1, $hide_names = false, $public = false) {
+	$config = $ctx->get('config');
 
 	if ($page_no < 1)
 		error($config['error']['404']);
@@ -756,8 +774,9 @@ function mod_board_log($board, $page_no = 1, $hide_names = false, $public = fals
 	mod_page(_('Board log'), 'mod/log.html', array('logs' => $logs, 'count' => $count, 'board' => $board, 'hide_names' => $hide_names, 'public' => $public));
 }
 
-function mod_view_board($boardName, $page_no = 1) {
-	global $config, $mod;
+function mod_view_board(Context $ctx, $boardName, $page_no = 1) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	if (!openBoard($boardName)){
 		if ($boardName !== 'overboard')
@@ -785,15 +804,16 @@ function mod_view_board($boardName, $page_no = 1) {
 	$page['pages'][$page_no-1]['selected'] = true;
 	$page['btn'] = getPageButtons($page['pages'], true);
 	$page['mod'] = true;
+	$page['capcodes'] = availableCapcodes($config['mod']['capcode'], $mod['type']);
 	$page['config'] = $config;
 	$page['pm'] = create_pm_header();
 
 	echo Element('index.html', $page);
 }
 
-function mod_view_catalog($boardName) {
-	global $config, $mod;
-
+function mod_view_catalog(Context $ctx, $boardName) {
+	global $mod;
+	$config = $ctx->get('config');
 	require_once $config['dir']['themes'].'/catalog/theme.php';
 	$settings = array();
 	$settings['boards'] = $boardName;
@@ -808,22 +828,30 @@ function mod_view_catalog($boardName) {
 }
 
 
-function mod_view_thread($boardName, $thread) {
-	global $config, $mod;
+function mod_view_thread(Context $ctx, $boardName, $thread) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	if (!openBoard($boardName))
 		error($config['error']['noboard']);
 
 	// Purge shadow posts that have timed out
-	if($config['shadow_del']['use'])
-		ShadowDelete::purge();
+	if ($config['shadow_del']['use']) {
+		(new ShadowManager(
+			$config,
+			$ctx->get(LogDriver::class),
+			$ctx->get(ShadowQueries::class),
+			false
+		))->purge();
+	}
 
 	$page = buildThread($thread, true, $mod, hasPermission($config['mod']['view_shadow_posts'], $boardName));
 	echo $page;
 }
 
-function mod_view_thread50($boardName, $thread) {
-	global $config, $mod;
+function mod_view_thread50(Context $ctx, $boardName, $thread) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	if (!openBoard($boardName))
 		error($config['error']['noboard']);
@@ -832,8 +860,8 @@ function mod_view_thread50($boardName, $thread) {
 	echo $page;
 }
 
-function mod_ip_set_forcedflag($ip, $country) {
-	global $config, $mod;
+function mod_ip_set_forcedflag(Context $ctx, $ip, $country) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['forcedflag']))
 			error($config['error']['noaccess']);
@@ -851,13 +879,13 @@ function mod_ip_set_forcedflag($ip, $country) {
 	$query->bindValue(':country', $country);
 	$query->execute() or error(db_error($query));
 
-	modLog("Added forced {$countryCode} for <a href=\"?/IP/{$ip}/page/1\">{$ip}</a>");
+	modLog("Added forced {$countryCode} for <a href=\"?/user_posts/ip/{$ip}\">{$ip}</a>");
 
-	header('Location: ?/IP/' . $ip . '/page/1', true, $config['redirect_http']);
+	header('Location: ?/user_posts/ip/' . $ip . '#forcedflag', true, $config['redirect_http']);
 }
 
-function mod_ip_remove_forcedflag($ip) {
-	global $config, $mod;
+function mod_ip_remove_forcedflag(Context $ctx, $ip) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['forcedflag']))
 			error($config['error']['noaccess']);
@@ -879,47 +907,47 @@ function mod_ip_remove_forcedflag($ip) {
 	$query->bindValue(':ip', $ip);
 	$query->execute() or error(db_error($query));
 
-	modLog("Removed forced {$country_name} flag for <a href=\"?/IP/{$ip}\">{$ip}</a>");
+	modLog("Removed forced {$country_name} flag for <a href=\"?/user_posts/ip/{$ip}\">{$ip}</a>");
 
-	header('Location: ?/IP/' . $ip . '/page/1', true, $config['redirect_http']);
+	header('Location: ?/user_posts/ip/' . $ip . '#forcedflag', true, $config['redirect_http']);
 }
 
-function mod_ip_remove_note($ip, $id) {
-	global $config, $mod;
+function mod_ip_remove_note(Context $ctx, $ip, $id) {
+	$config = $ctx->get('config');
 
-	if (!hasPermission($config['mod']['remove_notes']))
-			error($config['error']['noaccess']);
-
-	if (!validate_ip_string($ip))
-		error(_("Invalid IP address."));
-
-	$query = prepare('DELETE FROM ``ip_notes`` WHERE `ip` = :ip AND `id` = :id');
-	$query->bindValue(':ip', $ip);
-	$query->bindValue(':id', $id);
-	$query->execute() or error(db_error($query));
-
-	modLog("Removed a note for <a href=\"?/IP/{$ip}\">{$ip}</a>");
-
-	header('Location: ?/IP/' . $ip . '/page/1#notes', true, $config['redirect_http']);
-}
-
-function mod_ip($ip, $page = 1) {
-	global $config, $mod;
+	if (!hasPermission($config['mod']['remove_notes'])) {
+		error($config['error']['noaccess']);
+	}
 
 	if (!validate_ip_string($ip)) {
 		error(_("Invalid IP address."));
 	}
 
-	if ($page < 1) {
-		error($config['error']['404']);
+	$queries = $ctx->get(IpNoteQueries::class);
+	$deleted = $queries->deleteWhereIp((int)$id, $ip);
+
+	if (!$deleted) {
+		error(_("Note {$id} does not exist for {$ip}"));
+	}
+
+	modLog("Removed a note for <a href=\"?/user_posts/ip/{$ip}\">{$ip}</a>");
+
+	header('Location: ?/user_posts/ip/' . $ip . '#notes', true, $config['redirect_http']);
+}
+
+function mod_ip(Context $ctx, $ip) {
+	global $mod;
+	$config = $ctx->get('config');
+	$cache = $ctx->get(CacheDriver::class);
+
+	if (!validate_ip_string($ip)) {
+		error(_("Invalid IP address."));
 	}
 
 	$cacheKeys = [
 		'logs' => "mod_logs_{$ip}",
-		'notes' => "mod_notes_{$ip}",
 		'bans' => "mod_bans_{$ip}",
 		'countries' => "mod_countries_{$ip}",
-		'posts' => "mod_posts_{$ip}_page_{$page}"
 	];
 
 	if (isset($_POST['ban_id'], $_POST['unban'])) {
@@ -934,24 +962,24 @@ function mod_ip($ip, $page = 1) {
 			Bans::delete($_POST['ban_id'], true, $mod['boards']);
 		}
 
-		Cache::delete($cacheKeys['bans']);
+		$cache->delete($cacheKeys['bans']);
 
-		header('Location: ?/IP/' . $ip . '/page/' . $page . '#bans', true, $config['redirect_http']);
+		header('Location: ?/user_posts/ip/' . $ip . '#bans', true, $config['redirect_http']);
 		return;
 	}
 
 
 	// Set Forced Flag
 	if (isset($_POST['set_forcedflag'], $_POST['country'])) {
-		mod_ip_set_forcedflag($ip, $_POST['country']);
-		Cache::delete($cacheKeys['countries']);
+		mod_ip_set_forcedflag($ctx, $ip, $_POST['country']);
+		$cache->delete($cacheKeys['countries']);
 		return;
 	}
 
 	// Remove Forced Flag
 	if (isset($_POST['remove_forcedflag'])) {
-		mod_ip_remove_forcedflag($ip);
-		Cache::delete($cacheKeys['countries']);
+		mod_ip_remove_forcedflag($ctx, $ip);
+		$cache->delete($cacheKeys['countries']);
 		return;
 	}
 
@@ -964,9 +992,9 @@ function mod_ip($ip, $page = 1) {
 
 		Bans::ban_cookie($_POST['ban_id']);
 
-		Cache::delete($cacheKeys['bans']);
+		$cache->delete($cacheKeys['bans']);
 
-		header('Location: ?/IP/' . $ip . '/page/' . $page . '#bans', true, $config['redirect_http']);
+		header('Location: ?/user_posts/ip/' . $ip . '#bans', true, $config['redirect_http']);
 		return;
 	}
 
@@ -977,9 +1005,9 @@ function mod_ip($ip, $page = 1) {
 		$query->bindValue(':appeal', (bool)$_POST['appeal'] ? false : true, PDO::PARAM_INT);
 		$query->execute() or error(db_error($query));
 
-		Cache::delete($cacheKeys['bans']);
+		$cache->delete($cacheKeys['bans']);
 
-		header('Location: ?/IP/' . $ip . '/page/' . $page . '#bans', true, $config['redirect_http']);
+		header('Location: ?/user_posts/ip/' . $ip . '#bans', true, $config['redirect_http']);
 		return;
 	}
 
@@ -989,7 +1017,7 @@ function mod_ip($ip, $page = 1) {
 			error($config['error']['noaccess']);
 		}
 
-		Cache::delete($cacheKeys['bans']);
+		$cache->delete($cacheKeys['bans']);
 
 		header('Location: ?/edit_ban/' . $_POST['ban_id'], true, $config['redirect_http']);
 		return;
@@ -1003,59 +1031,76 @@ function mod_ip($ip, $page = 1) {
 
 		$_POST['note'] = escape_markup_modifiers($_POST['note']);
 		markup($_POST['note']);
-		$query = prepare('INSERT INTO ``ip_notes`` (`ip`, `mod`, `time`, `body`) VALUES (:ip, :mod, :time, :body)');
-		$query->bindValue(':ip', $ip);
-		$query->bindValue(':mod', $mod['id']);
-		$query->bindValue(':time', time());
-		$query->bindValue(':body', $_POST['note']);
-		$query->execute() or error(db_error($query));
 
-		modLog("Added a note for <a href=\"?/IP/{$ip}\">{$ip}</a>");
+		$notes = $ctx->get(IpNoteQueries::class);
+		$notes->add($ip, $mod['id'], $_POST['note']);
 
-		Cache::delete($cacheKeys['notes']);
+		modLog("Added a note for <a href=\"?/user_posts/ip/{$ip}\">{$ip}</a>");
 
-		header('Location: ?/IP/' . $ip . '/page/' . $page . '#notes', true, $config['redirect_http']);
+		header('Location: ?/user_posts/ip/' . $ip . '#notes', true, $config['redirect_http']);
 		return;
 	}
+
+	header('Location: ?/user_posts/ip/' . $ip, true, $config['redirect_http']);
+}
+
+function mod_user_posts_by_ip(Context $ctx, string $ip, ?string $encoded_cursor = null) {
+	global $mod;
+
+	$config = $ctx->get('config');
+	$cache = $ctx->get(CacheDriver::class);
+
+	if (!validate_ip_string($ip)) {
+		error(_("Invalid IP address."));
+	}
+
+	$cacheKeys = [
+		'logs' => "mod_logs_{$ip}",
+		'bans' => "mod_bans_{$ip}",
+		'countries' => "mod_countries_{$ip}",
+	];
 
 	$args = [
 		'ip' => $ip,
 		'posts' => [],
-		'page' => $page,
 		'is_gforcedflag' => false,
 		'countries' => [],
 		'logs' => [],
+		'hostname' => null,
 	];
 
-	$args['token'] = make_secure_link_token('ban');
-
-	if (hasPermission($config['mod']['view_ban']) && !$args['bans'] = Cache::get($cacheKeys['bans'])) {
-		$args['bans'] = Bans::find($ip, false, true, true);
-
-		Cache::set($cacheKeys['bans'], $args['bans'], 600);
+	if (isset($config['mod']['ip_recentposts'])) {
+		$log = $ctx->get(LogDriver::class);
+		$log->log(LogDriver::NOTICE, "'ip_recentposts' has been deprecated. Please use 'recent_user_posts' instead");
+		$page_size = $config['mod']['ip_recentposts'];
+	} else {
+		$page_size = $config['mod']['recent_user_posts'];
 	}
 
 
-	if (hasPermission($config['mod']['view_notes']) && !$args['notes'] = Cache::get($cacheKeys['notes'])) {
-		$query = prepare("SELECT ``ip_notes``.*, `username` FROM ``ip_notes`` LEFT JOIN ``mods`` ON `mod` = ``mods``.`id` WHERE `ip` = :ip ORDER BY `time` DESC");
-		$query->bindValue(':ip', $ip);
-		$query->execute() or error(db_error($query));
-		$args['notes'] = $query->fetchAll(PDO::FETCH_ASSOC);
+	if (hasPermission($config['mod']['view_ban']) && !$args['bans'] = $cache->get($cacheKeys['bans'])) {
+		$args['bans'] = Bans::find($ip, false, true, true, null, $config['auto_maintenance']);
 
-		Cache::set($cacheKeys['notes'], $args['notes'], 900);
+		$cache->set($cacheKeys['bans'], $args['bans'], 600);
 	}
 
-	if (hasPermission($config['mod']['modlog_ip']) && !$args['logs'] = Cache::get($cacheKeys['logs'])) {
+
+	if (hasPermission($config['mod']['view_notes'])) {
+		$notes = $ctx->get(IpNoteQueries::class);
+		$args['notes'] = $notes->getByIp($ip);
+	}
+
+	if (hasPermission($config['mod']['modlog_ip']) && !$args['logs'] = $cache->get($cacheKeys['logs'])) {
 		$query = prepare("SELECT `username`, `mod`, `ip`, `board`, `time`, `text` FROM ``modlogs`` LEFT JOIN ``mods`` ON `mod` = ``mods``.`id` WHERE `text` LIKE :search ORDER BY `time` DESC LIMIT 50");
 		$query->bindValue(':search', '%' . $ip . '%');
 		$query->execute() or error(db_error($query));
 		$args['logs'] = $query->fetchAll(PDO::FETCH_ASSOC);
 
-		Cache::set($cacheKeys['logs'], $args['logs'], 900);
+		$cache->set($cacheKeys['logs'], $args['logs'], 900);
 	}
 
 	// Add values for Forced Flag data
-	if (hasPermission($config['mod']['forcedflag']) && !$args['countries'] = Cache::get($cacheKeys['countries'])) {
+	if (hasPermission($config['mod']['forcedflag']) && !$args['countries'] = $cache->get($cacheKeys['countries'])) {
 		$query = prepare("SELECT `country` FROM ``custom_geoip`` WHERE `ip` = :ip");
 		$query->bindValue(":ip", $ip, PDO::PARAM_STR);
 		$query->execute() or error(db_error($query));
@@ -1068,27 +1113,148 @@ function mod_ip($ip, $page = 1) {
 			$args['countries'][] = ['id' => $key, 'name' => $val];
 		}
 
-		Cache::set($cacheKeys['countries'], $args['countries']);
+		$cache->set($cacheKeys['countries'], $args['countries']);
 
 	}
 
-    if ($config['cache']['enabled'] && !$postData = Cache::get($cacheKeys['posts'])) {
-        $postData = fetchPostsAndPaginate('ip', $ip, 'show_ip', $page);
-        if ($config['cache']['enabled']) {
-            Cache::set($cacheKeys['posts'], $postData, 900);
-        }
-    }
+	$boards = listBoards();
+	$queryable_uris = [];
+	foreach ($boards as $board) {
+		$uri = $board['uri'];
+		if (hasPermission($config['mod']['show_ip'], $uri)) {
+			$queryable_uris[] = $uri;
+		}
+	}
 
-	displayPage($ip, $postData, 'IP', $args);
+	$queries = $ctx->get(UserPostQueries::class);
+
+	$result = $queries->fetchPaginatedByIp($queryable_uris, $ip, $page_size, $encoded_cursor);
+	$args['cursor_prev'] = $result->cursor_prev;
+	$args['cursor_next'] = $result->cursor_next;
+
+	foreach($boards as $board) {
+		$uri = $board['uri'];
+		// The Thread and Post classes rely on some implicit board parameter set by openBoard.
+		openBoard($uri);
+
+		// Finally load the post contents and build them.
+		foreach ($result->by_uri[$uri] as $post) {
+			$post['board'] = $uri;
+
+			if ($post['shadow'] && $post['files']) {
+				$post['files'] = FileSystem::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
+			}
+
+			if ($config['mod']['dns_lookup'] && !$config['bcrypt_ip_addresses']) {
+				$args['hostname'] = rDNS($post['ip']);
+			} else {
+				$args['hostname'] = _('No lookup for hashed IP');
+			}
+
+			if (!$post['thread']) {
+				$po = new Thread($config, $post, '?/', $mod, false);
+			} else {
+				$po = new Post($config, $post, '?/', $mod);
+			}
+
+			if (!isset($args['posts'][$uri])) {
+				$args['posts'][$uri] = [ 'board' => $board, 'posts' => [] ];
+			}
+
+			$args['posts'][$uri]['posts'][] = $po->build(true);
+		}
+	}
+
+	$args['boards'] = $boards;
+	// Needed to create new bans.
+	$args['token'] = make_secure_link_token('ban');
+
+	// Since the security token is only used to send requests to create notes and remove bans, use "?/IP/" as the url.
+	$args['security_token'] = make_secure_link_token("IP/$ip");
+
+	mod_page(sprintf('%s: %s', _('IP'), htmlspecialchars($ip)), 'mod/view_ip.html', $args, $args['hostname']);
 }
 
-function mod_edit_ban(int $ban_id) {
-	global $mod, $config;
+function mod_user_posts_by_passwd(Context $ctx, string $passwd, ?string $encoded_cursor = null) {
+	global $mod;
+
+	// The current hashPassword implementation uses sha3-256, which has a 64 character output in non-binary mode.
+	if (strlen($passwd) != 64) {
+		error('Invalid password');
+	}
+
+	$config = $ctx->get('config');
+
+	$args = [
+		'passwd' => $passwd,
+		'posts' => []
+	];
+
+	if (isset($config['mod']['ip_recentposts'])) {
+		$log = $ctx->get(LogDriver::class);
+		$log->log(LogDriver::NOTICE, "'ip_recentposts' has been deprecated. Please use 'recent_user_posts' instead");
+		$page_size = $config['mod']['ip_recentposts'];
+	} else {
+		$page_size = $config['mod']['recent_user_posts'];
+	}
+
+	$boards = listBoards();
+
+	$queryable_uris = [];
+	foreach ($boards as $board) {
+		$uri = $board['uri'];
+		if (hasPermission($config['mod']['show_ip'], $uri)) {
+			$queryable_uris[] = $uri;
+		}
+	}
+
+	$queries = $ctx->get(UserPostQueries::class);
+
+	$result = $queries->fetchPaginateByPassword($queryable_uris, $passwd, $page_size, $encoded_cursor);
+	$args['cursor_prev'] = $result->cursor_prev;
+	$args['cursor_next'] = $result->cursor_next;
+
+	foreach($boards as $board) {
+		$uri = $board['uri'];
+		// The Thread and Post classes rely on some implicit board parameter set by openBoard.
+		openBoard($uri);
+
+		// Finally load the post contents and build them.
+		foreach ($result->by_uri[$uri] as $post) {
+			$post['board'] = $uri;
+
+			if ($post['shadow'] && $post['files']) {
+				$post['files'] = FileSystem::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
+			}
+
+			if (!$post['thread']) {
+				$po = new Thread($config, $post, '?/', $mod, false);
+			} else {
+				$po = new Post($config, $post, '?/', $mod);
+			}
+
+			if (!isset($args['posts'][$uri])) {
+				$args['posts'][$uri] = [ 'board' => $board, 'posts' => [] ];
+			}
+
+			$args['posts'][$uri]['posts'][] = $po->build(true);
+		}
+	}
+
+	$args['boards'] = $boards;
+
+	mod_page(sprintf('%s: %s', _('Password'), htmlspecialchars($passwd)), 'mod/view_passwd.html', $args);
+}
+
+function mod_edit_ban(Context $ctx, int $ban_id) {
+	global $mod;
+
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['edit_ban']))
 		error($config['error']['noaccess']);
 
-	$args['bans'] = Bans::find(null, false, true, true, $ban_id);
+	$args['bans'] = Bans::find(null, false, true, true, $ban_id, $config['auto_maintenance']);
 	$args['ban_id'] = $ban_id;
 	$args['boards'] = listBoards();
 	$args['reasons'] = $config['ban_reasons'];
@@ -1143,8 +1309,8 @@ function mod_edit_ban(int $ban_id) {
 
 }
 
-function mod_bantz_post($board, $post, $token = false) {
-	global $config, $mod;
+function mod_bantz_post(Context $ctx, $board, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1161,7 +1327,6 @@ function mod_bantz_post($board, $post, $token = false) {
 		error($config['error']['404']);
 
 	$thread = $_post['thread'];
-	$ip = $_post['ip'];
 
 	if (isset($_POST['new_bantz'], $_POST['message'])) {
 
@@ -1199,8 +1364,8 @@ function mod_bantz_post($board, $post, $token = false) {
 	mod_page(_('New bantz'), 'mod/bantz_form.html', $args);
 }
 
-function mod_nicenotice_post($board, $post, $token = false) {
-	global $config, $mod;
+function mod_nicenotice_post(Context $ctx, $board, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1214,16 +1379,17 @@ function mod_nicenotice_post($board, $post, $token = false) {
 		' FROM ``posts_%s`` WHERE `id` = :id', $board));
 	$query->bindValue(':id', $post);
 	$query->execute() or error(db_error($query));
-	if (!$_post = $query->fetch(PDO::FETCH_ASSOC))
+	if (!$_post = $query->fetch(PDO::FETCH_ASSOC)) {
 		error($config['error']['404']);
+	}
 
-	$thread = $_post['thread'];
 	$ip = $_post['ip'];
 
 	if (isset($_POST['new_nicenotice'], $_POST['reason'])) {
 
-		if (isset($_POST['ip']))
+		if (isset($_POST['ip'])) {
 			$ip = $_POST['ip'];
+		}
 
 	 	Bans::new_nicenotice($_post['ip'], $_POST['reason'], $board, false, $_post);
 
@@ -1243,8 +1409,8 @@ function mod_nicenotice_post($board, $post, $token = false) {
 	mod_page(_('New nicenotice'), 'mod/nicenotice_form.html', $args);
 }
 
-function mod_warning_post($board, $delete, $post, $token = false) {
-	global $config, $mod;
+function mod_warning_post(Context $ctx, $board, $delete, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1264,13 +1430,12 @@ function mod_warning_post($board, $delete, $post, $token = false) {
 	$thread = $_post['thread'];
 	$ip = $_post['ip'];
 
-	// // Get Unique User Cookie
-	// $cookie = $_post['cookie'];
 
 	if (isset($_POST['new_warning'], $_POST['reason'])) {
 
-		if (isset($_POST['ip']))
+		if (isset($_POST['ip'])) {
 			$ip = $_POST['ip'];
+		}
 
 	 	Bans::new_warning($_post['ip'], $_POST['reason'], $board, false, $_post);
 
@@ -1292,12 +1457,12 @@ function mod_warning_post($board, $delete, $post, $token = false) {
 				error($config['error']['noaccess']);
 
 			// Delete post
-			deletePostShadow($post);
+			deletePostShadow($ctx, $post);
 			modLog("Deleted post #{$post}");
 			// Rebuild board
 			buildIndex();
 			// Rebuild themes
-			rebuildThemes('post-delete', $board);
+			Vichan\Functions\Theme\rebuild_themes('post-delete', $board);
 		}
 
 
@@ -1318,8 +1483,8 @@ function mod_warning_post($board, $delete, $post, $token = false) {
 	mod_page(_('New warning'), 'mod/warning_form.html', $args);
 }
 
-function mod_ban() {
-	global $config;
+function mod_ban(Context $ctx) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['ban']))
 		error($config['error']['noaccess']);
@@ -1329,9 +1494,6 @@ function mod_ban() {
 		return;
 	}
 
-	if ($_POST['board'] == '*' && !hasPermission($config['mod']['ban_all_boards']))
-		error($config['error']['noaccess']);
-
 	Bans::new_ban($_POST['ip'], $_POST['uuser_cookie'], $_POST['reason'], $_POST['ban_length'], $_POST['board'] == '*' ? false : $_POST['board'], false, false, isset($_POST['appeal']) ? false : true);
 
 	if (isset($_POST['redirect']))
@@ -1340,8 +1502,10 @@ function mod_ban() {
 		header('Location: ?/', true, $config['redirect_http']);
 }
 
-function mod_bans() {
-	global $config, $mod;
+function mod_bans(Context $ctx) {
+	global $mod;
+
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['view_banlist']))
 		error($config['error']['noaccess']);
@@ -1359,23 +1523,15 @@ function mod_bans() {
 			error(sprintf($config['error']['toomanyunban'], $config['mod']['unban_limit'], count($unban)));
 
 		foreach ($unban as $id) {
-			if(hasPermission($config['mod']['unban_all_boards']))
-				Bans::delete($id, true, false, true);
-			else
-				Bans::delete($id, true, $mod['boards'], true);
+			Bans::delete($id, true, $mod['boards'], true);
 		}
-                rebuildThemes('bans');
+
+		Vichan\Functions\Theme\rebuild_themes('bans');
 		header('Location: ?/bans', true, $config['redirect_http']);
 		return;
 	}
 
 
-	// mod_page(_('Ban list'), 'mod/ban_list.html', array(
-	// 	'mod' => $mod,
-	// 	'boards' => json_encode(listBoards()),
-	// 	'token' => make_secure_link_token('bans'),
-	// 	'token_json' => make_secure_link_token('bans.json')
-	// ));
 	mod_page(_('Ban list'), 'mod/ban_list.html', array(
 		'mod' => $mod,
 		'boards' => json_encode($mod['boards']),
@@ -1384,11 +1540,13 @@ function mod_bans() {
 	));
 }
 
-function mod_bans_json() {
-        global $config, $mod;
+function mod_bans_json(Context $ctx) {
+    global $mod;
 
-        if (!hasPermission($config['mod']['ban']))
-                error($config['error']['noaccess']);
+	$config = $ctx->get('config');
+
+    if (!hasPermission($config['mod']['ban']))
+        error($config['error']['noaccess']);
 
 	// Compress the json for faster loads
 	if (substr_count($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip')) ob_start("ob_gzhandler");
@@ -1396,8 +1554,10 @@ function mod_bans_json() {
 	Bans::stream_json(false, false, !hasPermission($config['mod']['view_banstaff']), $mod['boards']);
 }
 
-function mod_ban_appeals() {
-	global $config, $board;
+function mod_ban_appeals(Context $ctx) {
+	global $board;
+
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['view_ban_appeals']))
 		error($config['error']['noaccess']);
@@ -1484,8 +1644,8 @@ function mod_ban_appeals() {
 	));
 }
 
-function mod_lock($board, $unlock, $post) {
-	global $config;
+function mod_lock(Context $ctx, $board, $unlock, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1518,8 +1678,8 @@ function mod_lock($board, $unlock, $post) {
 		event('lock', $post);
 }
 
-function mod_sticky($board, $unsticky, $post) {
-	global $config;
+function mod_sticky(Context $ctx, $board, $unsticky, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1540,8 +1700,8 @@ function mod_sticky($board, $unsticky, $post) {
 	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_cycle($board, $uncycle, $post) {
-	global $config;
+function mod_cycle(Context $ctx, $board, $uncycle, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1562,8 +1722,8 @@ function mod_cycle($board, $uncycle, $post) {
 	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_bumplock($board, $unbumplock, $post) {
-	global $config;
+function mod_bumplock(Context $ctx, $board, $unbumplock, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1584,8 +1744,8 @@ function mod_bumplock($board, $unbumplock, $post) {
 	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_hideid($board, $unhideid, $post) {
-	global $config;
+function mod_hideid(Context $ctx, $board, $unhideid, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1606,8 +1766,10 @@ function mod_hideid($board, $unhideid, $post) {
 	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_move_reply($originBoard, $postID) {
-	global $board, $config, $mod;
+function mod_move_reply(Context $ctx, $originBoard, $postID) {
+	global $board, $mod;
+
+	$config = $ctx->get('config');
 
 	if (!openBoard($originBoard))
 		error($config['error']['noboard']);
@@ -1636,8 +1798,8 @@ function mod_move_reply($originBoard, $postID) {
 		}
 
 		if ($post['files']) {
-			$post['files'] = json_decode($post['files']);
 			$post['has_file'] = true;
+			$post['files'] = json_decode($post['files']);
 		} else {
 			$post['has_file'] = false;
 		}
@@ -1683,7 +1845,7 @@ function mod_move_reply($originBoard, $postID) {
 		buildThread($post['op'] ? $newID : $post['thread']);
 
 		// trigger themes
-		rebuildThemes('post', $targetBoard);
+		Vichan\Functions\Theme\rebuild_themes('post', $targetBoard);
 		// mod log
 		modLog("Moved post #{$postID} to " . sprintf($config['board_abbreviation'], $targetBoard) . " (#{$newID})", $originBoard);
 
@@ -1722,8 +1884,9 @@ function mod_move_reply($originBoard, $postID) {
 
 }
 
-function mod_move($originBoard, $postID) {
-	global $board, $config, $mod, $pdo;
+function mod_move(Context $ctx, $originBoard, $postID) {
+	global $board, $mod, $pdo;
+	$config = $ctx->get('config');
 
 	if (!openBoard($originBoard))
 		error($config['error']['noboard']);
@@ -1748,8 +1911,8 @@ function mod_move($originBoard, $postID) {
 		$post['op'] = true;
 
 		if ($post['files']) {
-			$post['files'] = json_decode($post['files']);
 			$post['has_file'] = true;
+			$post['files'] = json_decode($post['files']);
 		} else {
 			$post['has_file'] = false;
 		}
@@ -1803,8 +1966,8 @@ function mod_move($originBoard, $postID) {
 			$post['thread'] = $newID;
 
 			if ($post['files']) {
-				$post['files'] = json_decode($post['files']);
 				$post['has_file'] = true;
+				$post['files'] = json_decode($post['files']);
 			} else {
 				$post['has_file'] = false;
 			}
@@ -1882,11 +2045,11 @@ function mod_move($originBoard, $postID) {
 		// build new thread
 		buildThread($newID);
 
-		clean();
+		clean($ctx);
 		buildIndex();
 
 		// trigger themes
-		rebuildThemes('post', $targetBoard);
+		Vichan\Functions\Theme\rebuild_themes('post', $targetBoard);
 
 		$newboard = $board;
 
@@ -1944,8 +2107,115 @@ function mod_move($originBoard, $postID) {
 	mod_page(_('Move thread'), 'mod/partials/move.html', array('post' => $postID, 'board' => $originBoard, 'boards' => $boards, 'token' => $security_token));
 }
 
-function mod_ban_post($board, $delete, $post, $token = false) {
-	global $config, $mod;
+function mod_ban_hash(Context $ctx, string $board, int $post_no, int|null $index = null, bool $redirect = true)
+{
+    $config = $ctx->get('config');
+
+    if (!openBoard($board)) {
+        error($config['error']['noboard']);
+    }
+
+    if ($index > $config['max_images']) {
+        error($config['error']['invalidpost']);
+    }
+
+    $query = prepare(sprintf("SELECT `files`, `thread`, `shadow` FROM ``posts_%s`` WHERE id = :id", $board));
+    $query->bindValue(':id', $post_no, PDO::PARAM_INT);
+    $query->execute() or error(db_error($query));
+
+    if (!$post = $query->fetch(PDO::FETCH_ASSOC)) {
+        error($config['error']['invalidpost']);
+    }
+
+    if (isset($post['shadow']) && $post['shadow']) {
+        $post['files'] = FileSystem::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
+    }
+
+    $files = json_decode($post['files']);
+
+    if ($files[$index]->file === 'deleted') {
+        error($config['error']['already_deleted']);
+    }
+
+    if (!array_key_exists(0, $files) || !array_key_exists($index, $files)) {
+        error($config['error']['invalidpost']);
+    }
+
+    if (count($files) === 1 && !$post['thread']) {
+        $toDelete = false;
+    }
+
+	if (
+		!($files[$index]->is_an_image || 
+		(isset($files[$index]->is_a_video) && $files[$index]->is_a_video) || 
+		in_array($files[$index]->extension, ['webm', 'mp4'])
+		)
+	) {
+        error(sprintf($config['error']['fileext'], $files[$index]->extension));
+	}
+
+    if (isset($_POST['reason'])) {
+
+        if (empty($_POST['reason'])) {
+            error(sprintf($config['error']['required'], 'reason'));
+        }
+
+		$isVideo = (isset($files[$index]->is_a_video) && $files[$index]->is_a_video) || in_array($files[$index]->extension, ['webm', 'mp4']);
+
+		$file = $files[$index]->file;
+        if (isset($post['shadow']) && $post['shadow']) {
+            $config['dir']['media'] = $config['dir']['shadow_del'];
+        }
+
+		if ($isVideo) {
+			$file = $files[$index]->thumb;
+		}
+
+		if (!isset($files[$index]->blockhash)) {
+        	$hash = blockhash_hash_of_file($config['dir']['media'] . $file, true);
+		} else {
+			$hash = $files[$index]->blockhash;
+		}
+
+        try {
+            $query = prepare("INSERT INTO ``hashlist`` (`hash`, `reason`) VALUES (:filehash, :reason)");
+            $query->bindValue(':filehash', hex2bin($hash));
+            $query->bindValue(':reason', $_POST['reason'], PDO::PARAM_STR);
+            $query->execute();
+        } catch(PDOException $e) {
+            error(_('This hash is already banned'));
+        }
+
+        if (!isset($toDelete)) {
+            deleteFile($post_no, true, $index);
+        }
+
+        // Rebuild board
+        buildIndex();
+        // Rebuild themes
+        Vichan\Functions\Theme\rebuild_themes('post-delete', $board);
+
+		$cache = $ctx->get(CacheDriver::class);
+		$cache->delete('hashlist');
+
+        if ($redirect) {
+            header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
+        }
+
+    }
+    mod_page(_('Hash Ban'), 'mod/hash_form.html', [
+        'post' => $post_no,
+        'board' => $board,
+        'file' => $index,
+        'reasons' => $config['hashban_reasons'],
+        'token' => make_secure_link_token($board . '/hash/' . $post_no . '/' . $index)
+		]
+    );
+}
+
+function mod_ban_post(Context $ctx, $board, $delete, $post) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -1953,6 +2223,16 @@ function mod_ban_post($board, $delete, $post, $token = false) {
 	switch($delete) {
 		case '&deletebyip':
 			if (!hasPermission($config['mod']['deletebyip'], $board)) {
+				error($config['error']['noaccess']);
+			}
+			break;
+		case '&deletebyipglobal':
+			if (!hasPermission($config['mod']['deletebyip_global'], $board)) {
+				error($config['error']['noaccess']);
+			}
+			break;
+		case '&deletebycookies':
+			if (!hasPermission($config['mod']['bandeletebycookies'])) {	
 				error($config['error']['noaccess']);
 			}
 			break;
@@ -1993,7 +2273,7 @@ function mod_ban_post($board, $delete, $post, $token = false) {
 			if (!hasPermission($config['mod']['lock']))
 				error($config['error']['noaccess']);
 			else
-				mod_lock($board, false, $post);
+				mod_lock($ctx, $board, false, $post);
 		}
 
 
@@ -2002,7 +2282,7 @@ function mod_ban_post($board, $delete, $post, $token = false) {
 
 		if (isset($_POST['public_message'], $_POST['message'])) {
 			// public ban message
-			$length_english = Bans::parse_time($_POST['ban_length']) ? until(Bans::parse_time($_POST['ban_length'])) : 'permanente';
+			$length_english = Bans::parse_time($_POST['ban_length']) ? Format\until(Bans::parse_time($_POST['ban_length'])) : 'permanente';
 			$_POST['message'] = preg_replace('/[\r\n]/', '', $_POST['message']);
 			$_POST['message'] = str_replace('%length%', $length_english, $_POST['message']);
 			$_POST['message'] = str_replace('%LENGTH%', strtoupper($length_english), $_POST['message']);
@@ -2022,15 +2302,21 @@ function mod_ban_post($board, $delete, $post, $token = false) {
 			switch($delete) {
 				case '&delete':
 					// Delete post
-					deletePostShadow($post);
+					deletePostShadow($ctx, $post);
 					modLog("Deleted post #{$post}");
 					// Rebuild board
 					buildIndex();
 					// Rebuild themes
-					rebuildThemes('post-delete', $board);
+					Vichan\Functions\Theme\rebuild_themes('post-delete', $board);
 					break;
 				case '&deletebyip':
-					mod_deletebyip($board, '', $post);
+					mod_deletebyip($ctx, $board, '', $post);
+					break;
+				case '&deletebyipglobal':
+					mod_deletebyip($ctx, $board, '&global', $post);
+					break;
+				case '&deletebycookies':
+					mod_deletebyip($ctx, $board, '&cookies', $post);
 					break;
 				case '':
 				default:
@@ -2060,8 +2346,9 @@ function mod_ban_post($board, $delete, $post, $token = false) {
 	mod_page(_('New ban'), 'mod/ban_form.html', $args);
 }
 
-function mod_edit_post($board, $edit_raw_html, $postID) {
-	global $config, $mod;
+function mod_edit_post(Context $ctx, $board, $edit_raw_html, $postID) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -2114,7 +2401,7 @@ function mod_edit_post($board, $edit_raw_html, $postID) {
 		if (isset($embed_link)) {
 			$query->bindValue(':embed', $embed_link);
 		} else {
-			$query->bindValue(':embed', NULL, PDO::PARAM_NULL);
+			$query->bindValue(':embed', null, PDO::PARAM_NULL);
 		}
 
 		$query->bindValue(':body', $_POST['body']);
@@ -2129,7 +2416,7 @@ function mod_edit_post($board, $edit_raw_html, $postID) {
 
 		buildIndex();
 
-		rebuildThemes('post', $board);
+		Vichan\Functions\Theme\rebuild_themes('post', $board);
 
 		header('Location: ?/' . sprintf($config['board_path'], $board) . $config['dir']['res'] . link_for($post) . '#' . $postID, true, $config['redirect_http']);
 	} else {
@@ -2151,8 +2438,10 @@ function mod_edit_post($board, $edit_raw_html, $postID) {
 	}
 }
 
-function mod_recent_posts(?bool $shadow, $lim) {
-	global $config, $mod, $pdo;
+// refactor this
+function mod_recent_posts(Context $ctx, ?bool $shadow, $lim) {
+	global $mod, $pdo;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['view_shadow_posts']))
 		error($config['error']['noaccess']);
@@ -2196,7 +2485,7 @@ function mod_recent_posts(?bool $shadow, $lim) {
 		if ($shadow) {
 			// Fix Filenames if shadow copy
 			if ($post['shadow'] && $post['files'])
-				$post['files'] = Shadowdelete::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
+				$post['files'] = FileSystem::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
 		}
 
 		if (!$post['thread']) {
@@ -2240,8 +2529,8 @@ function mod_recent_posts(?bool $shadow, $lim) {
 
 }
 
-function mod_shadow_restore_post($board, $post, $thread) {
-	global $config, $mod;
+function mod_shadow_restore_post(Context $ctx, $board, $post, $thread) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board)) {
 		error($config['error']['noboard']);
@@ -2251,19 +2540,26 @@ function mod_shadow_restore_post($board, $post, $thread) {
 		error($config['error']['noaccess']);
 	}
 
-    if ($thread > 0 && ShadowDelete::dbSelectThread($board, $thread, 0) == -1) {
+	$shadowQueries = $ctx->get(ShadowQueries::class);
+
+    if ($thread > 0 && $shadowQueries->selectThread($thread, $board, 1)) {
         error($config['error']['shadow_cannotrestore']);
 	}
 
 	// Restore Post
-	$thread_id = ShadowDelete::restorePost($post);
+	$thread_id = (new ShadowManager(
+					$config,
+					$ctx->get(LogDriver::class),
+					$shadowQueries,
+					true
+				))->restorePost($post, $board);
 
 	// Record the action
 	modLog("Restored Shadow Deleted post #{$post}");
 	// Rebuild board
 	buildIndex();
 	// Rebuild themes
-	rebuildThemes('post-delete', $board);
+	Vichan\Functions\Theme\rebuild_themes('post-delete', $board);
 
 	// Redirect
 	if($thread_id !== true) {
@@ -2276,8 +2572,8 @@ function mod_shadow_restore_post($board, $post, $thread) {
 }
 
 
-function mod_shadow_delete_post($board, $post) {
-	global $config, $mod;
+function mod_shadow_delete_post(Context $ctx, $board, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -2286,7 +2582,12 @@ function mod_shadow_delete_post($board, $post) {
 		error($config['error']['noaccess']);
 
 	// Restore Post
-	$thread_id = ShadowDelete::purgePost($post);
+	$thread_id = (new ShadowManager(
+					$config,
+					$ctx->get(LogDriver::class),
+					$ctx->get(ShadowQueries::class),
+					true
+				))->purgePost($post, $board);
 
 	// Record the action
 	modLog("Permanently Deleted Shadow Deleted post #{$post}");
@@ -2301,9 +2602,8 @@ function mod_shadow_delete_post($board, $post) {
 	}
 }
 
-function mod_delete($board, $force_shadow_delete, $post) {
-	global $config, $mod;
-
+function mod_delete(Context $ctx, $board, $force_shadow_delete, $post) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -2312,13 +2612,13 @@ function mod_delete($board, $force_shadow_delete, $post) {
 		error($config['error']['noaccess']);
 
 	// Delete post (get thread id)
-	$thread_id = deletePostShadow($post, true, true, $force_shadow_delete);
+	$thread_id = deletePostShadow($ctx, $post, true, true, $force_shadow_delete);
 	// Record the action
 	modLog("Deleted post #{$post}");
 	// Rebuild board
 	buildIndex();
 	// Rebuild themes
-	rebuildThemes('post-delete', $board);
+	Vichan\Functions\Theme\rebuild_themes('post-delete', $board);
 
 	// Redirect
 	if($thread_id !== true) {
@@ -2330,8 +2630,8 @@ function mod_delete($board, $force_shadow_delete, $post) {
 	}
 }
 
-function mod_deletefile($board, $post, $file) {
-	global $config, $mod;
+function mod_deletefile(Context $ctx, $board, $post, $file) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -2340,21 +2640,21 @@ function mod_deletefile($board, $post, $file) {
 		error($config['error']['noaccess']);
 
 	// Delete file
-	deleteFile($post, TRUE, $file);
+	deleteFile($post, true, $file);
 	// Record the action
 	modLog("Deleted file from post #{$post}");
 
 	// Rebuild board
 	buildIndex();
 	// Rebuild themes
-	rebuildThemes('post-delete', $board);
+	Vichan\Functions\Theme\rebuild_themes('post-delete', $board);
 
 	// Redirect
 	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_spoiler_image($board, $unspoiler, $post, $file) {
-	global $config, $mod;
+function mod_spoiler_image(Context $ctx, $board, $unspoiler, $post, $file) {
+	$config = $ctx->get('config');
 
 	if (!openBoard($board))
 		error($config['error']['noboard']);
@@ -2403,21 +2703,30 @@ function mod_spoiler_image($board, $unspoiler, $post, $file) {
 	buildIndex();
 
 	// Rebuild themes
-	rebuildThemes('post-delete', $board);
+	Vichan\Functions\Theme\rebuild_themes('post-delete', $board);
 
 	// Redirect
 	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_deletebyip($boardName, $action, $post) {
-	global $config, $mod, $board;
+// refactor this
+function mod_deletebyip(Context $ctx, $boardName, $action, $post) {
+	global $board;
+
+	$config = $ctx->get('config');
 
 	switch($action) {
 		case '&global':
 			$global = true;
+			$password = false;
+			break;
+		case '&cookies':
+			$password = true;
+			$global = true;
 			break;
 		default:
 			$global = false;
+			$password = false;
 			break;
 	}
 
@@ -2430,8 +2739,11 @@ function mod_deletebyip($boardName, $action, $post) {
 	if ($global && !hasPermission($config['mod']['deletebyip_global'], $boardName))
 		error($config['error']['noaccess']);
 
+	if ($password && !hasPermission($config['mod']['show_password_less'], $boardName))
+		error($config['error']['noaccess']);
+
 	// Find IP address
-	$query = prepare(sprintf('SELECT `ip` FROM ``posts_%s`` WHERE `id` = :id', $boardName));
+	$query = prepare(sprintf('SELECT '. ((!$password) ? '`ip`' : '`password`') . ' FROM ``posts_%s`` WHERE `id` = :id', $boardName));
 	$query->bindValue(':id', $post);
 	$query->execute() or error(db_error($query));
 	if (!$ip = $query->fetchColumn())
@@ -2441,7 +2753,7 @@ function mod_deletebyip($boardName, $action, $post) {
 
 	$query = '';
 	foreach ($boards as $_board) {
-		$query .= sprintf("SELECT `thread`, `id`, '%s' AS `board` FROM ``posts_%s`` WHERE `ip` = :ip UNION ALL ", $_board['uri'], $_board['uri']);
+		$query .= sprintf("SELECT `thread`, `id`, '%s' AS `board` FROM ``posts_%s`` WHERE " . ((!$password) ? "`ip`" : "`password`") . " = :ip UNION ALL ", $_board['uri'], $_board['uri']);
 	}
 	$query = preg_replace('/UNION ALL $/', '', $query);
 
@@ -2461,7 +2773,7 @@ function mod_deletebyip($boardName, $action, $post) {
 		$boards_to_rebuild[$post['board']] = true;
 		openBoard($post['board']);
 
-		deletePostShadow($post['id'], false, false);
+		deletePostShadow($ctx, $post['id'], false, false);
 
 		if ($post['thread'])
 			$threads_to_rebuild[$post['board']][$post['thread']] = true;
@@ -2478,24 +2790,25 @@ function mod_deletebyip($boardName, $action, $post) {
 			}
 		foreach(array_keys($boards_to_rebuild) as $_board) {
 			openBoard($_board);
-			rebuildThemes('post-delete', $board['uri']);
+			Vichan\Functions\Theme\rebuild_themes('post-delete', $board['uri']);
 
 		buildIndex();
 	}
 
-	if ($global) {
+	if ($global || $password) {
 		$board = false;
 	}
 
 	// Record the action
-	modLog("Deleted all posts by IP address: <a href=\"?/IP/$ip/page/1\">$ip</a>");
+	modLog("Deleted all posts by IP address: <a href=\"?/user_posts/ip/$ip\">$ip</a>");
 
 	// Redirect
 	header('Location: ?/' . sprintf($config['board_path'], $boardName) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_user($uid) {
-	global $config, $mod;
+function mod_user(Context $ctx, $uid) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['editusers']) && !(hasPermission($config['mod']['change_password']) && $uid == $mod['id']))
 		error($config['error']['noaccess']);
@@ -2621,8 +2934,9 @@ function mod_user($uid) {
 	));
 }
 
-function mod_user_new() {
-	global $pdo, $config;
+function mod_user_new(Context $ctx) {
+	global $pdo;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['createusers']))
 		error($config['error']['noaccess']);
@@ -2680,8 +2994,8 @@ function mod_user_new() {
 	mod_page(_('New user'), 'mod/user.html', array('new' => true, 'boards' => listBoards(), 'token' => make_secure_link_token('users/new')));
 }
 
-function mod_users() {
-	global $config;
+function mod_users(Context $ctx) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['manageusers']))
 		error($config['error']['noaccess']);
@@ -2701,8 +3015,8 @@ function mod_users() {
 	mod_page(sprintf('%s (%d)', _('Manage users'), count($users)), 'mod/users.html', array('users' => $users));
 }
 
-function mod_user_promote($uid, $action) {
-	global $config;
+function mod_user_promote(Context $ctx, $uid, $action) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['promoteusers']))
 		error($config['error']['noaccess']);
@@ -2744,8 +3058,10 @@ function mod_user_promote($uid, $action) {
 	header('Location: ?/users', true, $config['redirect_http']);
 }
 
-function mod_pm($id, $reply = false) {
-	global $mod, $config;
+function mod_pm(Context $ctx, $id, $reply = false) {
+	global $mod;
+
+	$config = $ctx->get('config');
 
 	if ($reply && !hasPermission($config['mod']['create_pm']))
 		error($config['error']['noaccess']);
@@ -2762,10 +3078,9 @@ function mod_pm($id, $reply = false) {
 		$query->bindValue(':id', $id);
 		$query->execute() or error(db_error($query));
 
-		if ($config['cache']['enabled']) {
-			cache::delete('pm_unread_' . $mod['id']);
-			cache::delete('pm_unreadcount_' . $mod['id']);
-		}
+		$cache = $ctx->get(CacheDriver::class);
+		$cache->delete('pm_unread_' . $mod['id']);
+		$cache->delete('pm_unreadcount_' . $mod['id']);
 
 		header('Location: ?/', true, $config['redirect_http']);
 		return;
@@ -2776,10 +3091,9 @@ function mod_pm($id, $reply = false) {
 		$query->bindValue(':id', $id);
 		$query->execute() or error(db_error($query));
 
-		if ($config['cache']['enabled']) {
-			cache::delete('pm_unread_' . $mod['id']);
-			cache::delete('pm_unreadcount_' . $mod['id']);
-		}
+		$cache = $ctx->get(CacheDriver::class);
+		$cache->delete('pm_unread_' . $mod['id']);
+		$cache->delete('pm_unreadcount_' . $mod['id']);
 
 		modLog('Read a PM');
 	}
@@ -2799,8 +3113,9 @@ function mod_pm($id, $reply = false) {
 	}
 }
 
-function mod_inbox() {
-	global $config, $mod;
+function mod_inbox(Context $ctx) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	$query = prepare('SELECT `unread`,``pms``.`id`, `time`, `sender`, `to`, `message`, `username` FROM ``pms`` LEFT JOIN ``mods`` ON ``mods``.`id` = `sender` WHERE `to` = :mod ORDER BY `unread` DESC, `time` DESC');
 	$query->bindValue(':mod', $mod['id']);
@@ -2822,8 +3137,10 @@ function mod_inbox() {
 	));
 }
 
-function mod_new_pm($username) {
-	global $config, $mod;
+function mod_new_pm(Context $ctx, $username) {
+	global $mod;
+
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['create_pm']))
 		error($config['error']['noaccess']);
@@ -2853,10 +3170,9 @@ function mod_new_pm($username) {
 		$query->bindValue(':time', time());
 		$query->execute() or error(db_error($query));
 
-		if ($config['cache']['enabled']) {
-			cache::delete('pm_unread_' . $id);
-			cache::delete('pm_unreadcount_' . $id);
-		}
+		$cache = $ctx->get(CacheDriver::class);
+		$cache->delete('pm_unread_' . $mod['id']);
+		$cache->delete('pm_unreadcount_' . $mod['id']);
 
 		modLog('Sent a PM to ' . utf8tohtml($username));
 
@@ -2870,14 +3186,18 @@ function mod_new_pm($username) {
 	));
 }
 
-function mod_rebuild() {
-	global $config, $twig;
+function mod_rebuild(Context $ctx) {
+	global $twig;
+
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['rebuild']))
 		error($config['error']['noaccess']);
 
 	if (isset($_POST['rebuild'])) {
 		@set_time_limit($config['mod']['rebuild_timelimit']);
+
+		$cache = $ctx->get(CacheDriver::class);
 
 		$log = array();
 		$boards = listBoards();
@@ -2886,7 +3206,7 @@ function mod_rebuild() {
 		if (isset($_POST['rebuild_cache'])) {
 			if ($config['cache']['enabled']) {
 				$log[] = _('Flushing cache');
-				Cache::flush();
+				$cache->flush();
 			}
 
 			$log[] = _('Clearing template cache');
@@ -2896,7 +3216,7 @@ function mod_rebuild() {
 
 		if (isset($_POST['rebuild_themes'])) {
 			$log[] = _('Regenerating theme files');
-			rebuildThemes('all');
+			Vichan\Functions\Theme\rebuild_themes('all');
 		}
 
 		if (isset($_POST['rebuild_javascript'])) {
@@ -2913,8 +3233,14 @@ function mod_rebuild() {
 			$config['try_smarter'] = false;
 
 			if (isset($_POST['rebuild_index'])) {
-				clean("Rebuild");
+				clean($ctx, "Rebuild");
 				buildIndex();
+				(new ArchiveManager(
+					$config,
+					$ctx->get(LogDriver::class),
+					$ctx->get(ArchiveQueries::class),
+					$ctx->get(ArchiveTemplating::class)
+				))->rebuildArchiveIndexes();	
 				$log[] = '<strong>' . sprintf($config['board_abbreviation'], $board['uri']) . '</strong>: '. _('Creating index pages');
 			}
 
@@ -2925,10 +3251,18 @@ function mod_rebuild() {
 			}
 
 			if (isset($_POST['rebuild_thread'])) {
-				$query = query(sprintf("SELECT `id` FROM ``posts_%s`` WHERE `thread` IS NULL AND `shadow` = 0", $board['uri'])) or error(db_error());
+				$query = query(sprintf("SELECT `id` FROM ``posts_%s`` WHERE `thread` IS NULL AND `shadow` = 0 AND `archive` = 0", $board['uri'])) or error(db_error());
 				while ($post = $query->fetch(PDO::FETCH_ASSOC)) {
 					$log[] = '<strong>' . sprintf($config['board_abbreviation'], $board['uri']) . '</strong>: '. _('Rebuilding thread').' #' . $post['id'];
 					buildThread($post['id']);
+				}
+			}
+
+			if (isset($_POST['rebuild_archive'])) {
+				$query = query(sprintf('SELECT `id` FROM ``posts_%s`` WHERE `thread` IS NULL AND `shadow` = 0 AND `archive` = 1', $board['uri'])) or error(db_error());
+				while ($post = $query->fetch(PDO::FETCH_ASSOC)) {
+					$log[] = '<strong>' . sprintf($config['board_abbreviation'], $board['uri']) . '</strong>: '. _('Rebuilding archive thread').' #' . $post['id'];
+					buildThread($post['id'], false, false, false, true);
 				}
 			}
 		}
@@ -2943,49 +3277,30 @@ function mod_rebuild() {
 	));
 }
 
-function mod_reports() {
-	global $config, $mod;
+function mod_reports(Context $ctx) {
+	global $mod;
+	$config = $ctx->get('config');
 
-	if (!hasPermission($config['mod']['reports']))
+	if (!hasPermission($config['mod']['reports'])) {
 		error($config['error']['noaccess']);
-
-	$query = prepare("SELECT * FROM ``reports`` ORDER BY `time` DESC LIMIT :limit");
-	$query->bindValue(':limit', $config['mod']['recent_reports'], PDO::PARAM_INT);
-	$query->execute() or error(db_error($query));
-	$reports = $query->fetchAll(PDO::FETCH_ASSOC);
-
-	$report_queries = array();
-	foreach ($reports as $report) {
-		if (!isset($report_queries[$report['board']]))
-			$report_queries[$report['board']] = array();
-		$report_queries[$report['board']][] = $report['post'];
 	}
 
-	$report_posts = array();
-	foreach ($report_queries as $board => $posts) {
-		$report_posts[$board] = array();
-
-		$query = query(sprintf('SELECT * FROM ``posts_%s`` WHERE `shadow` = 0 AND `id` = ' . implode(' OR `id` = ', $posts), $board)) or error(db_error());
-		while ($post = $query->fetch(PDO::FETCH_ASSOC)) {
-			$report_posts[$board][$post['id']] = $post;
-		}
+	$reports_limit = $config['mod']['recent_reports'];
+	$report_queries = $ctx->get(ReportQueries::class);
+	$report_rows = $report_queries->getReportsWithPosts($reports_limit);
+	
+	if (\count($report_rows) > $reports_limit) {
+		\array_pop($report_rows);
+		$has_extra = true;
+	} else {
+		$has_extra = false;
 	}
 
-	$count = 0;
 	$body = '';
-	foreach ($reports as $report) {
-		if (!isset($report_posts[$report['board']][$report['post']])) {
-			// // Invalid report (post has since been deleted)
-			$query = prepare("DELETE FROM ``reports`` WHERE `post` = :id AND `board` = :board");
-			$query->bindValue(':id', $report['post'], PDO::PARAM_INT);
-			$query->bindValue(':board', $report['board']);
-			$query->execute() or error(db_error($query));
-			continue;
-		}
-
+	foreach ($report_rows as $report) {
 		openBoard($report['board']);
 
-		$post = &$report_posts[$report['board']][$report['post']];
+		$post = $report['post_data'];
 
 		$post['board'] = $report['board'];
 		if (!$post['thread']) {
@@ -3019,61 +3334,71 @@ function mod_reports() {
 
 		$body .= $po->build(true) . '<hr>';
 
-		if (isset($__old_body_truncate_char))
+		if (isset($__old_body_truncate_char)) {
 			$config['body_truncate_char'] = $__old_body_truncate_char;
-
-		$count++;
+		}
 	}
 
-	mod_page(sprintf('%s (%d)', _('Report queue'), $count), 'mod/reports.html', array('reports' => $body, 'count' => $count));
+	$count = \count($report_rows);
+	$header_count = $has_extra ? "{$count}+" : (string)$count;
+
+	mod_page(
+		sprintf('%s (%d)', _('Report queue'), $header_count),
+		'mod/reports.html',
+		[
+			'reports' => $body,
+			'count' => $count
+		]);
 }
 
-function mod_report_dismiss($id, $action) {
-	global $config;
+function mod_report_dismiss(Context $ctx, $id, $action) {
+	$config = $ctx->get('config');
 
-	$query = prepare("SELECT `post`, `board`, `ip` FROM ``reports`` WHERE `id` = :id");
-	$query->bindValue(':id', $id);
-	$query->execute() or error(db_error($query));
-	if ($report = $query->fetch(PDO::FETCH_ASSOC)) {
-		$ip = $report['ip'];
-		$board = $report['board'];
-		$post = $report['post'];
-	} else
+	$report_queries = $ctx->get(ReportQueries::class);
+	$report = $report_queries->getReportById($id);
+
+	if ($report === null) {
 		error($config['error']['404']);
+	}
+	$ip = $report['ip'];
+	$board = $report['board'];
+	$post = $report['post'];
 
 	switch ($action) {
-	case '&post':
-		if (!hasPermission($config['mod']['report_dismiss_post'], $board))
-			error($config['error']['noaccess']);
+		case '&post':
+			if (!hasPermission($config['mod']['report_dismiss_post'], $board)) {
+				error($config['error']['noaccess']);
+			}
 
-		$query = prepare("DELETE FROM ``reports`` WHERE `post` = :post");
-		$query->bindValue(':post', $post);
-		modLog("Dismissed all reports for post #{$id}", $board);
-		break;
-	case '&all':
-		if (!hasPermission($config['mod']['report_dismiss_ip'], $board))
-			error($config['error']['noaccess']);
+			$report_queries->deleteByPost($post);
+			modLog("Dismissed all reports for post #{$id}", $board);
+			break;
+		case '&all':
+			if (!hasPermission($config['mod']['report_dismiss_ip'], $board)) {
+				error($config['error']['noaccess']);
+			}
 
-		$query = prepare("DELETE FROM ``reports`` WHERE `ip` = :ip");
-		$query->bindValue(':ip', $ip);
-		modLog("Dismissed all reports by <a href=\"?/IP/{$ip}/page/1\">{$ip}</a>");
-		break;
-	default:
-		if (!hasPermission($config['mod']['report_dismiss'], $board))
-			error($config['error']['noaccess']);
+			$report_queries->deleteByIp($ip);
+			modLog("Dismissed all reports by <a href=\"?/user_posts/ip/{$ip}\">{$ip}</a>");
+			break;
+		case '':
+		default:
+			if (!hasPermission($config['mod']['report_dismiss'], $board)) {
+				error($config['error']['noaccess']);
+			}
 
-		$query = prepare("DELETE FROM ``reports`` WHERE `id` = :id");
-		$query->bindValue(':id', $id);
-		modLog("Dismissed a report for post #{$post}", $board);
-		break;
+			$report_queries->deleteById($id);
+			modLog("Dismissed a report for post #{$post}", $board);
+			break;
 	}
-	$query->execute() or error(db_error($query));
 
 	header('Location: ?/reports', true, $config['redirect_http']);
 }
 
-function mod_config($board_config = false) {
-	global $config, $mod, $board;
+function mod_config(Context $ctx, $board_config = false) {
+	global $mod, $board;
+
+	$config = $ctx->get('config');
 
 	if ($board_config && !openBoard($board_config))
 		error($config['error']['noboard']);
@@ -3113,8 +3438,8 @@ function mod_config($board_config = false) {
 			'readonly' => $readonly,
 			'boards' => listBoards(),
 			'board' => $board_config,
-			'file' => $config_file,
 			'pm' => create_pm_header(),
+			'file' => $config_file,
 			'token' => make_secure_link_token('config' . ($board_config ? '/' . $board_config : ''))
 		));
 		return;
@@ -3168,7 +3493,7 @@ function mod_config($board_config = false) {
 
 				$config_append .= ' = ';
 				if (@$var['permissions'] && isset($config['mod']['groups'][$value])) {
-					$config_append .= $config['mod']['groups'][$value];
+					$config_append .= strtoupper($config['mod']['groups'][$value]);
 				} else {
 					$config_append .= var_export($value, true);
 				}
@@ -3193,8 +3518,8 @@ function mod_config($board_config = false) {
 					$config_append = str_replace("\n", '&#010;', $config_append);
 				$page = array();
 				$page['title'] = 'Cannot write to file!';
-				$page['pm'] = create_pm_header();
 				$page['config'] = $config;
+				$page['pm'] = create_pm_header();
 				$page['body'] = '
 					<p style="text-align:center">Tinyboard could not write to <strong>' . $config_file . '</strong> with the ammended configuration, probably due to a permissions error.</p>
 					<p style="text-align:center">You may proceed with these changes manually by copying and pasting the following code to the end of <strong>' . $config_file . '</strong>:</p>
@@ -3220,8 +3545,8 @@ function mod_config($board_config = false) {
 	));
 }
 
-function mod_themes_list() {
-	global $config;
+function mod_themes_list(Context $ctx) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['themes']))
 		error($config['error']['noaccess']);
@@ -3238,7 +3563,7 @@ function mod_themes_list() {
 	$themes = array();
 	while ($file = readdir($dir)) {
 		if ($file[0] != '.' && is_dir($config['dir']['themes'] . '/' . $file)) {
-			$themes[$file] = loadThemeConfig($file);
+			$themes[$file] = Vichan\Functions\Theme\load_theme_config($file);
 		}
 	}
 	closedir($dir);
@@ -3254,13 +3579,13 @@ function mod_themes_list() {
 	));
 }
 
-function mod_theme_configure($theme_name) {
-	global $config;
+function mod_theme_configure(Context $ctx, $theme_name) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['themes']))
 		error($config['error']['noaccess']);
 
-	if (!$theme = loadThemeConfig($theme_name)) {
+	if (!$theme = Vichan\Functions\Theme\load_theme_config($theme_name)) {
 		error($config['error']['invalidtheme']);
 	}
 
@@ -3268,7 +3593,7 @@ function mod_theme_configure($theme_name) {
 		// Check if everything is submitted
 		foreach ($theme['config'] as &$conf) {
 			if (!isset($_POST[$conf['name']]) && $conf['type'] != 'checkbox')
-				error(sprintf($config['error']['required'], $c['title']));
+				error(sprintf($config['error']['required'], $conf['title']));
 		}
 
 		// Clear previous settings
@@ -3298,7 +3623,7 @@ function mod_theme_configure($theme_name) {
 		$result = true;
 		$message = false;
 		if (isset($theme['install_callback'])) {
-			$ret = $theme['install_callback'](themeSettings($theme_name));
+			$ret = $theme['install_callback'](Vichan\Functions\Theme\theme_settings($theme_name));
 			if ($ret && !empty($ret)) {
 				if (is_array($ret) && count($ret) == 2) {
 					$result = $ret[0];
@@ -3315,7 +3640,7 @@ function mod_theme_configure($theme_name) {
 		}
 
 		// Build themes
-		rebuildThemes('all');
+		Vichan\Functions\Theme\rebuild_themes('all');
 
 		mod_page(sprintf(_($result ? 'Installed theme: %s' : 'Installation failed: %s'), $theme['name']), 'mod/theme_installed.html', array(
 			'theme_name' => $theme_name,
@@ -3326,7 +3651,7 @@ function mod_theme_configure($theme_name) {
 		return;
 	}
 
-	$settings = themeSettings($theme_name);
+	$settings = Vichan\Functions\Theme\theme_settings($theme_name);
 
 	mod_page(sprintf(_('Configuring theme: %s'), $theme['name']), 'mod/theme_config.html', array(
 		'theme_name' => $theme_name,
@@ -3336,30 +3661,32 @@ function mod_theme_configure($theme_name) {
 	));
 }
 
-function mod_theme_uninstall($theme_name) {
-	global $config;
+function mod_theme_uninstall(Context $ctx, $theme_name) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['themes']))
 		error($config['error']['noaccess']);
+
+	$cache = $ctx->get(CacheDriver::class);
 
 	$query = prepare("DELETE FROM ``theme_settings`` WHERE `theme` = :theme");
 	$query->bindValue(':theme', $theme_name);
 	$query->execute() or error(db_error($query));
 
 	// Clean cache
-	Cache::delete("themes");
-	Cache::delete("theme_settings_".$theme_name);
+	$cache->delete("themes");
+	$cache->delete("theme_settings_".$theme_name);
 
 	header('Location: ?/themes', true, $config['redirect_http']);
 }
 
-function mod_theme_rebuild($theme_name) {
-	global $config;
+function mod_theme_rebuild(Context $ctx, $theme_name) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['themes']))
 		error($config['error']['noaccess']);
 
-	rebuildTheme($theme_name, 'all');
+	Vichan\Functions\Theme\rebuild_theme($theme_name, 'all');
 
 	mod_page(sprintf(_('Rebuilt theme: %s'), $theme_name), 'mod/theme_rebuilt.html', array(
 		'theme_name' => $theme_name,
@@ -3367,8 +3694,9 @@ function mod_theme_rebuild($theme_name) {
 }
 
 // This needs to be done for `secure` CSRF prevention compatibility, otherwise the $board will be read in as the token if editing global pages.
-function delete_page_base($page = '', $board = false) {
-	global $config, $mod;
+function delete_page_base(Context $ctx, $page = '', $board = false) {
+	global $mod;
+	$config = $ctx->get('config');
 
 	if (empty($board))
 		$board = false;
@@ -3379,12 +3707,12 @@ function delete_page_base($page = '', $board = false) {
 	if (!hasPermission($config['mod']['edit_pages'], $board))
 		error($config['error']['noaccess']);
 
-	if ($board !== FALSE && !openBoard($board))
+	if ($board && !openBoard($board))
 		error($config['error']['noboard']);
 
 	if ($board) {
 		$query = prepare('DELETE FROM ``pages`` WHERE `board` = :board AND `name` = :name');
-		$query->bindValue(':board', ($board ? $board : NULL));
+		$query->bindValue(':board', ($board ? $board : null));
 	} else {
 		$query = prepare('DELETE FROM ``pages`` WHERE `board` IS NULL AND `name` = :name');
 	}
@@ -3394,16 +3722,18 @@ function delete_page_base($page = '', $board = false) {
 	header('Location: ?/edit_pages' . ($board ? ('/' . $board) : ''), true, $config['redirect_http']);
 }
 
-function mod_delete_page($page = '') {
-	delete_page_base($page);
+function mod_delete_page(Context $ctx, $page = '') {
+	delete_page_base($ctx, $page);
 }
 
-function mod_delete_page_board($page = '', $board = false) {
-	delete_page_base($page, $board);
+function mod_delete_page_board(Context $ctx, $page = '', $board = false) {
+	delete_page_base($ctx, $page, $board);
 }
 
-function mod_edit_page($id) {
-	global $config, $mod, $board;
+function mod_edit_page(Context $ctx, $id) {
+	global $mod, $board;
+
+	$config = $ctx->get('config');
 
 	$query = prepare('SELECT * FROM ``pages`` WHERE `id` = :id');
 	$query->bindValue(':id', $id);
@@ -3459,8 +3789,8 @@ function mod_edit_page($id) {
 		$html = Element('page.html', array(
 			'config' => $config,
 			'boardlist' => createBoardlist(false),
-			'pm' => create_pm_header(),
 			'body' => $body,
+			'pm' => create_pm_header(),
 			'title' => utf8tohtml($page['title'])
 		));
 		file_write($fn, $html);
@@ -3476,8 +3806,10 @@ function mod_edit_page($id) {
 	mod_page(sprintf(_('Editing static page: %s'), $page['name']), 'mod/edit_page.html', array('page' => $page, 'token' => make_secure_link_token("edit_page/$id"), 'content' => prettify_textarea($content), 'board' => $board));
 }
 
-function mod_pages($board = false) {
-	global $config, $mod, $pdo;
+function mod_pages(Context $ctx, $board = false) {
+	global $mod, $pdo;
+
+	$config = $ctx->get('config');
 
 	if (empty($board))
 		$board = false;
@@ -3488,7 +3820,7 @@ function mod_pages($board = false) {
 	if (!hasPermission($config['mod']['edit_pages'], $board))
 		error($config['error']['noaccess']);
 
-	if ($board !== FALSE && !openBoard($board))
+	if ($board && !openBoard($board))
 		error($config['error']['noboard']);
 
 	if ($board) {
@@ -3512,10 +3844,10 @@ function mod_pages($board = false) {
 				error(_('Refusing to create a new page with the same name as an existing one.'));
 		}
 
-		$title = ($_POST['title'] ? $_POST['title'] : NULL);
+		$title = ($_POST['title'] ? $_POST['title'] : null);
 
 		$query = prepare('INSERT INTO ``pages`` (`board`, `title`, `name`) VALUES (:board, :title, :name)');
-		$query->bindValue(':board', ($board ? $board : NULL));
+		$query->bindValue(':board', ($board ? $board : null));
 		$query->bindValue(':title', $title);
 		$query->bindValue(':name', $_POST['page']);
 		$query->execute() or error(db_error($query));
@@ -3530,8 +3862,10 @@ function mod_pages($board = false) {
 	mod_page(_('Pages'), 'mod/pages.html', array('pages' => $pages, 'token' => make_secure_link_token('edit_pages' . ($board ? ('/' . $board) : '')), 'board' => $board));
 }
 
-function mod_debug_antispam() {
-	global $pdo, $config;
+function mod_debug_antispam(Context $ctx) {
+	global $pdo;
+
+	$config = $ctx->get('config');
 
 	$args = array();
 
@@ -3567,8 +3901,8 @@ function mod_debug_antispam() {
 	mod_page(_('Debug: Anti-spam'), 'mod/debug/antispam.html', $args);
 }
 
-function mod_debug_recent_posts() {
-	global $pdo, $config;
+function mod_debug_recent_posts(Context $ctx) {
+	global $pdo;
 
 	$limit = 500;
 
@@ -3601,8 +3935,8 @@ function mod_debug_recent_posts() {
 	mod_page(_('Debug: Recent posts'), 'mod/debug/recent_posts.html', array('posts' => $posts, 'flood_posts' => $flood_posts));
 }
 
-function mod_debug_sql() {
-	global $config;
+function mod_debug_sql(Context $ctx) {
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['debug_sql']))
 		error($config['error']['noaccess']);
@@ -3625,130 +3959,131 @@ function mod_debug_sql() {
 	mod_page(_('Debug: SQL'), 'mod/debug/sql.html', $args);
 }
 
-function mod_debug_apcu() {
-	global $config;
-
-	if (!hasPermission($config['mod']['debug_apc']))
-		error($config['error']['noaccess']);
-
-	if ($config['cache']['enabled'] !== 'apcu')
-		error(_('APCU is not enabled.'));
-
-	$cache_info = apcu_cache_info(false);
-
-	$cached_vars = array();
-	foreach ($cache_info['cache_list'] as $var) {
-		if ($config['cache']['prefix'] != '' && strpos(isset($var['key']) ? $var['key'] : $var['info'], $config['cache']['prefix']) !== 0)
-			continue;
-		$cached_vars[] = $var;
-	}
-
-	mod_page(_('Debug: APCU'), 'mod/debug/apc.html', array('cached_vars' => $cached_vars));
-}
-
-function mod_view_archive($boardName) {
-	global $board, $config;
+function mod_view_archive(Context $ctx, string $boardName, int $page = null) {
+	global $board;
+	$config = $ctx->get('config');
 
 	// If archiving is turned off return
-	if(!$config['archive']['threads'])
+	if (!$config['archive']['threads']) {
 		return;
+	}
 
-	if (!openBoard($boardName))
+	if (!openBoard($boardName)) {
 		error($config['error']['noboard']);
-
-	if(isset($_POST['feature'], $_POST['id'])) {
-		if(!hasPermission($config['mod']['feature_archived_threads'], $board['uri']))
-			error($config['error']['noaccess']);
-
-		Archive::featureThread($_POST['id']);
 	}
-	else if(isset($_POST['mod_archive'], $_POST['id'])) {
-		if(!hasPermission($config['mod']['add_to_mod_archive'], $board['uri']))
-			error($config['error']['noaccess']);
 
-		Archive::featureThread($_POST['id'], true);
-	}
+	$archive_queries = $ctx->get(ArchiveQueries::class);
+
+	$currentPage = ($page === null || (int)$page === 1) ? 1 : (int)$page;
+	$threadsPerPage = $config['archive']['threads_per_page'] ?? 50;
+	$offset = ($currentPage - 1) * $threadsPerPage;
+
+	$totalThreads = $archive_queries->getArchiveCount($config['archive']['lifetime'], $board['uri']);
+	$totalPages = (int)ceil($totalThreads / $threadsPerPage);
 
 	// Get Archive List
-	$archive = Archive::getArchiveList();
+	$archive = $archive_queries->getArchiveList(
+		$config['archive']['lifetime'],
+		$board['uri'],
+		$offset,
+		$threadsPerPage,
+	);
 
-	foreach($archive as &$thread)
-		$thread['archived_url'] = sprintf($config['board_path'], $board['uri']) . $config['dir']['archive'] . $config['dir']['res'] . sprintf($config['file_page'], $thread['id']);
-
-	mod_page(sprintf(_('Archived') . ' %s: ' . $config['board_abbreviation'], _('threads'), $board['uri']), 'mod/archive_list.html', array(
-		'archive' => $archive,
-		'thread_count' => count($archive),
-		'board' => $board,
-		'token' => make_secure_link_token($board['uri']. '/archive/')
-	));
-}
-
-function mod_view_archive_featured($boardName) {
-	global $board, $config;
-
-	// If archiving is turned off return
-	if(!$config['feature']['threads'])
-		return;
-
-	if (!openBoard($boardName))
-		error($config['error']['noboard']);
-
-	if(isset($_POST['delete'], $_POST['id'])) {
-		if(!hasPermission($config['mod']['delete_featured_archived_threads'], $board['uri']))
-			error($config['error']['noaccess']);
-
-		Archive::deleteFeatured($_POST['id']);
+	foreach($archive as &$thread) {
+		$thread['archived_url'] =
+			$config['file_mod'] . '?/' .
+			sprintf($config['board_path'], $board['uri']) .
+			$config['dir']['archive'] .
+			$config['dir']['res'] .
+			sprintf($config['file_page'], $thread['thread_id']);
 	}
 
-	$query = query(sprintf("SELECT `id`, `snippet`, `featured` FROM ``archive_%s`` WHERE `featured` = 1 ORDER BY `lifetime` DESC", $board['uri'])) or error(db_error());
-	$archive = $query->fetchAll(PDO::FETCH_ASSOC);
+	$pagination = [
+		'current' => $currentPage,
+		'total' => $totalPages,
+	];
 
-	foreach($archive as &$thread)
-		$thread['featured_url'] = sprintf($config['board_path'], $board['uri']) . $config['dir']['featured'] . $config['dir']['res'] . sprintf($config['file_page'], $thread['id']);
-
-	mod_page(sprintf(_('Featured') . ' %s: ' . $config['board_abbreviation'], _('threads'), $board['uri']), 'mod/archive_featured_list.html', array(
-		'archive' => $archive,
-		'board' => $board,
-		'token' => make_secure_link_token($board['uri']. '/featured/')
-	));
+	mod_page(
+		sprintf(_('Archived') . ' %s: ' . $config['board_abbreviation'], _('threads'), $board['uri'])
+		, 'mod/archive_list.html',
+		[
+			'archive' => $archive,
+			'thread_count' => $totalThreads,
+			'board' => $board,
+			'pagination' => $pagination,
+	]);
 }
 
-function mod_view_archive_mod_archive($boardName) {
-	global $board, $config;
+function mod_view_archive_thread(Context $ctx, $boardName, $thread) {
+	global $mod;
+	$config = $ctx->get('config');
 
-	// If archiving is turned off return
-	if(!$config['mod_archive']['threads'])
-		return;
+	if (!openBoard($boardName)) {
+		error($config['error']['noboard']);
+	}
 
-	if(!hasPermission($config['mod']['view_mod_archive'], $board['uri']))
+	echo buildThread($thread, true, $mod, false, true);
+}
+
+function mod_archive_thread(Context $ctx, $board, $post) {
+	$config = $ctx->get('config');
+
+	if (!openBoard($board))
+		error($config['error']['noboard']);
+
+	if (!hasPermission($config['mod']['send_threads_to_archive'], $board))
 		error($config['error']['noaccess']);
 
-	if (!openBoard($boardName))
-		error($config['error']['noboard']);
+	(new ArchiveManager(
+		$config,
+		$ctx->get(LogDriver::class),
+		$ctx->get(ArchiveQueries::class),
+		$ctx->get(ArchiveTemplating::class)
+	))->archiveThread($post, $board);
 
-	if(isset($_POST['delete'], $_POST['id'])) {
-		if(!hasPermission($config['mod']['remove_from_mod_archive'], $board['uri']))
-			error($config['error']['noaccess']);
-
-		Archive::deleteFeatured($_POST['id'], true);
-	}
-
-	$query = query(sprintf("SELECT `id`, `snippet` FROM ``archive_%s`` WHERE `mod_archived` = 1 ORDER BY `lifetime` DESC", $board['uri'])) or error(db_error());
-	$archive = $query->fetchAll(PDO::FETCH_ASSOC);
-
-	foreach($archive as &$thread)
-		$thread['featured_url'] = sprintf($config['board_path'], $board['uri']) . $config['dir']['mod_archive'] . $config['dir']['res'] . sprintf($config['file_page'], $thread['id']);
-
-	mod_page(sprintf(_('Mod Archive') . ' %s: ' . $config['board_abbreviation'], _('threads'), $board['uri']), 'mod/archive_featured_list.html', array(
-		'archive' => $archive,
-		'is_mod_archive' => true,
-		'board' => $board,
-		'token' => make_secure_link_token($board['uri']. '/mod_archive/')
-	));
+	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
 }
 
-function mod_view_statistics() {
-	global $config, $pdo;
+function mod_archive_restore(Context $ctx, $board, $post) {
+	$config = $ctx->get('config');
+
+	if (!openBoard($board))
+		error($config['error']['noboard']);
+
+	if (!hasPermission($config['mod']['send_threads_to_archive'], $board))
+		error($config['error']['noaccess']);
+
+	(new ArchiveManager(
+		$config,
+		$ctx->get(LogDriver::class),
+		$ctx->get(ArchiveQueries::class),
+		$ctx->get(ArchiveTemplating::class)
+	))->restoreThread($post, $board);
+
+	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
+}
+
+function mod_archive_delete(Context $ctx, $board, $post) {
+	$config = $ctx->get('config');
+
+	if (!openBoard($board))
+		error($config['error']['noboard']);
+
+	if (!hasPermission($config['mod']['send_threads_to_archive'], $board))
+		error($config['error']['noaccess']);
+
+	(new ArchiveManager(
+		$config,
+		$ctx->get(LogDriver::class),
+		$ctx->get(ArchiveQueries::class),
+		$ctx->get(ArchiveTemplating::class)
+	))->deleteThread($post, $board);
+
+	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
+}
+
+function mod_view_statistics(Context $ctx) {
+	$config = $ctx->get('config');
 
 	if(!hasPermission($config['mod']['view_statistics']))
 			error($config['error']['noaccess']);
@@ -3769,8 +4104,8 @@ function mod_view_statistics() {
 	));
 }
 
-function mod_view_board_statistics($boardName) {
-	global $config, $pdo;
+function mod_view_board_statistics(Context $ctx, $boardName) {
+	$config = $ctx->get('config');
 
 	if(!hasPermission($config['mod']['view_statistics']))
 			error($config['error']['noaccess']);
@@ -3794,23 +4129,10 @@ function mod_view_board_statistics($boardName) {
 	));
 }
 
-function mod_archive_thread($board, $post) {
-	global $config;
 
-	if (!openBoard($board))
-		error($config['error']['noboard']);
-
-	if (!hasPermission($config['mod']['send_threads_to_archive'], $board))
-		error($config['error']['noaccess']);
-
-	Archive::archiveThread($post);
-	mod_delete($board, false, $post);
-
-	header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
-}
-
-function mod_banners($b) {
-	global $config, $board;
+function mod_banners(Context $ctx, $b) {
+	global $board;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['edit_banners'], $b)) {
 		error($config['error']['noaccess']);
@@ -3877,8 +4199,9 @@ function mod_banners($b) {
     ]);
 }
 
-function mod_merge($originBoard, $postID) {
-	global $board, $config, $mod, $pdo;
+function mod_merge(Context $ctx, $originBoard, $postID) {
+	global $board, $mod, $pdo;
+	$config = $ctx->get('config');
 
 	if (!openBoard($originBoard))
 		error($config['error']['noboard']);
@@ -3938,7 +4261,7 @@ function mod_merge($originBoard, $postID) {
 		buildThread($targetOp);
 
 		// trigger themes
-		rebuildThemes('post', $targetBoard);
+		Vichan\Functions\Theme\rebuild_themes('post');
 
 		// update bump
 		dbUpdateBumpOrder($targetBoard, $targetOp, $config['reply_limit']);
@@ -3956,8 +4279,8 @@ function mod_merge($originBoard, $postID) {
 		$post['op'] = true;
 
 		if ($post['files']) {
-			$post['files'] = json_decode($post['files']);
 			$post['has_file'] = true;
+			$post['files'] = json_decode($post['files']);
 		} else {
 			$post['has_file'] = false;
 		}
@@ -4008,8 +4331,8 @@ function mod_merge($originBoard, $postID) {
 			$post['thread'] = $newID;
 
 			if ($post['files']) {
-				$post['files'] = json_decode($post['files']);
 				$post['has_file'] = true;
+				$post['files'] = json_decode($post['files']);
 			} else {
 				$post['has_file'] = false;
 			}
@@ -4064,11 +4387,11 @@ function mod_merge($originBoard, $postID) {
 		// build new thread
 		buildThread($newID);
 
-		clean();
+		clean($ctx);
 		buildIndex();
 
 		// trigger themes
-		rebuildThemes('post', $targetBoard);
+		Vichan\Functions\Theme\rebuild_themes('post');
 
 		// update bump
 		dbUpdateBumpOrder($targetBoard, $postID, $config['reply_limit']);
@@ -4078,7 +4401,7 @@ function mod_merge($originBoard, $postID) {
 		// return to original board
 		openBoard($originBoard);
 
-		deletePostShadow($postID);
+		deletePostShadow($ctx, $postID);
 		modLog("Deleted post #{$postID}");
 		buildIndex();
 
@@ -4095,7 +4418,7 @@ function mod_merge($originBoard, $postID) {
 		buildThread($targetOp);
 
 		// trigger themes
-		rebuildThemes('post', $targetBoard);
+		Vichan\Functions\Theme\rebuild_themes('post', $targetBoard);
 		modLog("Merged thread with  #{$newID} to " . sprintf($config['board_abbreviation'], $targetBoard) . " (#{$targetOp})", $targetBoard);
 
 		// redirect
@@ -4108,214 +4431,10 @@ function mod_merge($originBoard, $postID) {
 	mod_page(_('Merge thread'), 'mod/partials/merge.html', array('post' => $postID, 'board' => $originBoard, 'boards' => $boards, 'token' => $security_token));
 }
 
-function fetchPostsAndPaginate($criteria, $criteriaValue, $permissionKey, $page)
+
+function mod_hashlist(Context $ctx)
 {
-    global $config, $mod;
-
-    $boards = listBoards();
-    $allPostIds = [];
-    $totalCount = 0;
-	$postsPerPage = 20;
-
-    foreach ($boards as $board) {
-        if ($mod && !hasPermission($config['mod'][$permissionKey], $board['uri'])) {
-            continue;
-        }
-
-        $countQuery = prepare(sprintf('SELECT COUNT(1) FROM ``posts_%s`` WHERE `%s` = :criteriaValue', $board['uri'], $criteria));
-        $countQuery->bindValue(':criteriaValue', $criteriaValue);
-        $countQuery->execute() or error(db_error($countQuery));
-        $totalCount += $countQuery->fetchColumn();
-
-        $idQuery = prepare(sprintf('SELECT `id` FROM ``posts_%s`` WHERE `%s` = :criteriaValue ORDER BY `sticky` DESC, `id` DESC', $board['uri'], $criteria));
-        $idQuery->bindValue(':criteriaValue', $criteriaValue);
-        $idQuery->execute() or error(db_error($idQuery));
-
-        while ($id = $idQuery->fetchColumn()) {
-            $allPostIds[] = ['board' => $board['uri'], 'id' => $id];
-        }
-    }
-
-    usort($allPostIds, function ($a, $b) {
-        return $b['id'] <=> $a['id'];
-    });
-
-    $offset = ($page - 1) * $postsPerPage;
-    $paginatedPostIds = array_slice($allPostIds, $offset, $postsPerPage);
-
-    return [
-		'paginatedPostIds' => $paginatedPostIds,
-		'totalCount' => $totalCount,
-		'boards' => $boards,
-		'postsPerPage' => $postsPerPage
-	];
-}
-
-function displayPage($identifier, $postData, $type, $args)
-{
-	global $config, $mod;
-
-    extract($postData);
-
-	$args['totalPosts'] = $totalCount;
-	$args['boards'] = $boards;
-	$page = &$args['page'];
-	if ($mod) {
-    	$args['security_token'] = make_secure_link_token("$type/$identifier/page/$page");
-	}
-
-    foreach ($paginatedPostIds as $postInfo) {
-        openBoard($postInfo['board']);
-        $postQuery = prepare(sprintf('SELECT * FROM ``posts_%s`` WHERE `id` = :id', $postInfo['board']));
-        $postQuery->bindValue(':id', $postInfo['id'], PDO::PARAM_INT);
-        $postQuery->execute() or error(db_error($postQuery));
-
-        while ($post = $postQuery->fetch(PDO::FETCH_ASSOC)) {
-            processPost($post, $postInfo['board'], $args);
-        }
-    }
-
-    $args['totalPages'] = ceil($totalCount / $postsPerPage);
-	$hostname = null;
-
-	$identifier = getHumanReadableIP($identifier);
-
-	$header = sprintf('%s: %s', $type, $identifier);
-
-    mod_page($header, 'mod/view_ip.html', $args, $hostname);
-}
-
-function processPost($post, $boardUri, &$args)
-{
-	global $config, $mod, $board;
-
-    if ($mod && $post['shadow'] && $post['files']) {
-        $post['files'] = Shadowdelete::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
-    }
-
-    $post['board'] = $boardUri;
-
-    if (!$post['thread']) {
-        $po = new Thread($config, $post, '?/', $mod, false);
-    } else {
-        $po = new Post($config, $post, '?/', $mod);
-    }
-
-    if (!isset($args['posts'][$boardUri])) {
-        $args['posts'][$boardUri] = ['board' => $board, 'posts' => []];
-    }
-    $args['posts'][$boardUri]['posts'][] = $po->build(true);
-}
-
-function mod_ban_hash(string $board, int $post_no, int|null $index = null, bool $redirect = true)
-{
-    global $config;
-
-    if (!openBoard($board)) {
-        error($config['error']['noboard']);
-    }
-
-    if ($index > $config['max_images']) {
-        error($config['error']['invalidpost']);
-    }
-
-    $query = prepare(sprintf("SELECT `files`, `thread`, `shadow` FROM ``posts_%s`` WHERE id = :id", $board));
-    $query->bindValue(':id', $post_no, PDO::PARAM_INT);
-    $query->execute() or error(db_error($query));
-
-    if (!$post = $query->fetch(PDO::FETCH_ASSOC)) {
-        error($config['error']['invalidpost']);
-    }
-
-    if (isset($post['shadow']) && $post['shadow']) {
-        $post['files'] = ShadowDelete::hashShadowDelFilenamesDBJSON($post['files'], $config['shadow_del']['filename_seed']);
-    }
-
-    $files = json_decode($post['files']);
-
-    if ($files[$index]->file === 'deleted') {
-        error($config['error']['already_deleted']);
-    }
-
-    if (!array_key_exists(0, $files) || !array_key_exists($index, $files)) {
-        error($config['error']['invalidpost']);
-    }
-
-    if (count($files) === 1 && !$post['thread']) {
-        $toDelete = false;
-    }
-
-	if (
-		!($files[$index]->is_an_image ||
-		(isset($files[$index]->is_a_video) && $files[$index]->is_a_video) ||
-		in_array($files[$index]->extension, ['webm', 'mp4'])
-		)
-	) {
-        error(sprintf($config['error']['fileext'], $files[$index]->extension));
-	}
-
-    if (isset($_POST['reason'])) {
-
-        if (empty($_POST['reason'])) {
-            error(sprintf($config['error']['required'], 'reason'));
-        }
-
-		$isVideo = (isset($files[$index]->is_a_video) && $files[$index]->is_a_video) || in_array($files[$index]->extension, ['webm', 'mp4']);
-		$file = $files[$index]->file;
-
-        if (isset($post['shadow']) && $post['shadow']) {
-            $config['dir']['img'] = $config['dir']['shadow_del'];
-        }
-		if ($isVideo) {
-			$file = $files[$index]->thumb;	
-		}
-
-		if (!isset($files[$index]->blockhash)) {
-        	$hash = blockhash_hash_of_file($config['dir']['media'] . $file, true);
-		} else {
-			$hash = $files[$index]->blockhash;
-		}
-
-        try {
-            $query = prepare("INSERT INTO ``hashlist`` (`hash`, `reason`) VALUES (:filehash, :reason)");
-            $query->bindValue(':filehash', hex2bin($hash));
-            $query->bindValue(':reason', $_POST['reason'], PDO::PARAM_STR);
-            $query->execute();
-        } catch(PDOException $e) {
-            error(_('This hash is already banned'));
-        }
-
-        if (!isset($toDelete)) {
-            deleteFile($post_no, true, $index);
-        }
-
-        // Rebuild board
-        buildIndex();
-        // Rebuild themes
-        rebuildThemes('post-delete', $board);
-
-		if ($config['cache']['enabled']) {
-			Cache::delete('hashlist');
-		}
-
-        if ($redirect) {
-            header('Location: ?/' . sprintf($config['board_path'], $board) . $config['file_index'], true, $config['redirect_http']);
-        }
-
-    }
-    mod_page(_('Hash Ban'), 'mod/hash_form.html', [
-        'post' => $post_no,
-        'board' => $board,
-        'file' => $index,
-        'reasons' => $config['hashban_reasons'],
-        'token' => make_secure_link_token($board . '/hash/' . $post_no . '/' . $index)
-		]
-    );
-}
-
-function mod_hashlist()
-{
-	global $config;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['view_hashlist'])) {
 		error($config['error']['noaccess']);
@@ -4331,10 +4450,9 @@ function mod_hashlist()
             return $row;
         }, $hash);
 
-		if ($config['cache']['enabled']) {
-			Cache::set('hashlist', $hash);
-			Cache::set('hashlistpost', array_column($hash, 'bin_hash'));
-		}
+		$cache = $ctx->get(CacheDriver::class);
+		$cache->set('hashlist', $hash);
+		$cache->set('hashlistpost', array_column($hash, 'bin_hash'));
 	} else {
         $hash = array_map(function($row) {
             $row['hash'] = bin2hex(base64_decode($row['bin_hash']));
@@ -4349,9 +4467,9 @@ function mod_hashlist()
 	);
 }
 
-function mod_change_hashlist(int $id)
+function mod_change_hashlist(Context $ctx, int $id)
 {
-	global $config;
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['delete_hashlist'])) {
 		error($config['error']['noaccess']);
@@ -4362,9 +4480,8 @@ function mod_change_hashlist(int $id)
 		$query->bindValue(':id', $id, PDO::PARAM_INT);
 		$query->execute() or error(db_error($query));
 
-		if ($config['cache']['enabled']) {
-			Cache::delete('hashlist');
-		}
+		$cache = $ctx->get(CacheDriver::class);
+		$cache->delete('hashlist');
 
 		modLog('Removed a hash');
 	} else {
@@ -4374,8 +4491,8 @@ function mod_change_hashlist(int $id)
 	header('Location: ?/hashlist', true, $config['redirect_http']);
 }
 
-function mod_whitelist_region(){
-	global $config;
+function mod_whitelist_region(Context $ctx){
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['view_whitelist']))
 		error($config['error']['noaccess']);
@@ -4389,8 +4506,8 @@ function mod_whitelist_region(){
 	));
 }
 
-function mod_change_whitelist($ip = false){
-	global $config;
+function mod_change_whitelist(Context $ctx, $ip = false){
+	$config = $ctx->get('config');
 
 	if (!hasPermission($config['mod']['view_whitelist']))
 		error($config['error']['noaccess']);

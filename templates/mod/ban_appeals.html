@@ -15,7 +15,7 @@
 			{% if mod|hasPermission(config.mod.show_ip, board.uri) %}
 				<tr>
 					<th>{% trans %}IP{% endtrans %}</th>
-					<td><a href="?/IP/{{ ban.mask }}/page/1">{{ ban.mask|human_ip }}</a></td>
+					<td><a href="?/user_posts/ip/{{ ban.mask }}">{{ ban.mask|human_ip }}</a></td>
 				</tr>
 			{% endif %}
 			<tr>

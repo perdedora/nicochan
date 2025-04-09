@@ -113,6 +113,9 @@ li {
         {% if mod|hasPermission(config.mod.view_hashlist) %}
             <li><a href="?/hashlist"><i class="fa fa-hashtag"></i>&nbsp;{% trans %}Hashban list{% endtrans %}</a></li>
         {% endif %}
+        {% if mod|hasPermission(config.mod.view_whitelist) and config.regionblock %}
+            <li><a href="?/wl_region"><i class="fa fa-align-justify"></i>&nbsp;{% trans %}Whitelist{% endtrans %}</a></li>
+        {% endif %}
         {% if mod|hasPermission(config.mod.edit_banners) %}
             <li><a href="?/banners/banners_priority"><i class="fa fa-upload"></i>&nbsp;{% trans %}Banners General{% endtrans %}</a></li>
         {% endif %}

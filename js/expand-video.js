@@ -67,7 +67,7 @@ function setupVideo(thumb, url) {
     };
 
     thumb.addEventListener("click", (e) => {
-        if (setting("videoexpand") && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        if (getSetting("videoexpand") && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
             getVideo();
             expanded = true;
             hovering = false;
@@ -82,8 +82,8 @@ function setupVideo(thumb, url) {
 
             videoContainer.style.display = "block";
             thumb.style.display = "none";
-            video.muted = setting("videovolume") === 0;
-            video.volume = setting("videovolume");
+            video.muted = getSetting("videovolume") === 0;
+            video.volume = getSetting("videovolume");
             video.controls = true;
 
             if (video.readyState === 0) {
@@ -102,12 +102,12 @@ function setupVideo(thumb, url) {
         if (bottom > window.innerHeight) {
             window.scrollBy(0, bottom - window.innerHeight);
         }
-        video.volume = Math.max(setting("videovolume") - 0.001, 0);
-        video.volume = setting("videovolume");
+        video.volume = Math.max(getSetting("videovolume") - 0.001, 0);
+        video.volume = getSetting("videovolume");
     };
 
     thumb.addEventListener("mouseover", () => {
-        if (setting("videohover")) {
+        if (getSetting("videohover")) {
             getVideo();
             expanded = false;
             hovering = true;
@@ -124,8 +124,8 @@ function setupVideo(thumb, url) {
             });
 
             videoContainer.style.display = "inline";
-            video.muted = setting("videovolume") === 0;
-            video.volume = setting("videovolume");
+            video.muted = getSetting("videovolume") === 0;
+            video.volume = getSetting("videovolume");
             video.controls = false;
             video.play();
         }
@@ -134,8 +134,8 @@ function setupVideo(thumb, url) {
     thumb.addEventListener("mouseout", unhover);
 
     thumb.addEventListener("wheel", (e) => {
-        if (setting("videohover")) {
-            let volume = setting("videovolume");
+        if (getSetting("videohover")) {
+            let volume = getSetting("videovolume");
             volume = Math.max(0, Math.min(1, volume + (e.deltaY < 0 ? 0.1 : -0.1)));
             if (video) {
                 video.muted = volume === 0;

@@ -80,7 +80,7 @@ class ModalHandler {
         if (form) {
             form.addEventListener('submit', (event) => {
                 event.preventDefault();
-		        form.querySelector('input[type="submit"]').setAttribute('disabled', 'disabled');
+                form.querySelector('input[type="submit"]').setAttribute('disabled', 'disabled');
                 const formData = new FormData(form);
                 formData.append('json_response', '1');
                 const xhr = new XMLHttpRequest();

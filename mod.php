@@ -1,10 +1,17 @@
 <?php
 
 /*
- *  Copyright (c) 2010-2024 Tinyboard Development Group
+ *  Copyright (c) 2010-2014 Tinyboard Development Group
  */
 
+use Vichan\Context;
+
 require_once 'inc/bootstrap.php';
+
+if ($config['debug']) {
+	$parse_start_time = microtime(true);
+}
+
 require_once 'inc/mod/pages.php';
 
 /**
@@ -31,11 +38,11 @@ class Router {
 	/**
 	 * Router constructor.
 	 *
-	 * @param array $config Configuration settings for the application
+	 * @param Context $config Configuration settings for the application
 	 * @param mixed|null $mod Mod information for the current user session
 	 */
-	public function __construct(array $config, mixed $mod = null) {
-		$this->config = $config;
+	public function __construct(Context $ctx, mixed $mod = null) {
+		$this->config = $ctx->get('config');
 		$this->mod = $mod;
 		$this->query = isset($_SERVER['QUERY_STRING']) ? rawurldecode($_SERVER['QUERY_STRING']) : '';
 
@@ -79,7 +86,6 @@ class Router {
 			'/edit_page/(\d+)' => 'secure_POST edit_page', // edit site-wide static pages
 			'/edit_pages/delete/([a-z0-9]+)' => 'secure delete_page', // delete site-wide static pages
 			'/edit_pages/delete/([a-z0-9]+)/(\%b)' => 'secure delete_page_board', // delete static pages from board
-
 			'/wl_region' => 'whitelist_region', // view whitelist
 			'/change_wl(/([\w.:]+))?' => 'secure_POST change_whitelist', // modify whitelist
 			'/hashlist' => 'hashlist', // view hashban list
@@ -97,7 +103,11 @@ class Router {
 			'/reports' => 'reports', // report queue
 			'/reports/(\d+)/dismiss(&all|&post)?' => 'secure report_dismiss', // dismiss a report
 
-			'/IP/([\w.:]+)/page/(\d+)' => 'secure_POST ip', // view ip address
+			'/IP/([\w.:]+)' => 'secure_POST ip', // view ip address
+			'/user_posts/ip/([\w.:]+)' => 'secure_POST user_posts_by_ip', // view user posts by ip address
+			'/user_posts/ip/([\w.:]+)/cursor/([\w|-|_]+)' => 'secure_POST user_posts_by_ip', // remove note from ip address
+			'/user_posts/passwd/(\w+)'				=> 'secure_POST user_posts_by_passwd',		// view user posts by ip address
+			'/user_posts/passwd/(\w+)/cursor/([\w|-|_]+)'	=> 'secure_POST user_posts_by_passwd',	// remove note from ip address
 
 			'/IP/([\w.:]+)/remove_note/(\d+)' => 'secure ip_remove_note', // remove note from ip address
 
@@ -124,15 +134,17 @@ class Router {
 			'/(\%b)/statistics' => 'view_board_statistics', // view site post statistics for given board
 
 			'/(\%b)/archive/' => 'secure_POST view_archive', // view archive
-			'/(\%b)/featured/' => 'secure_POST view_archive_featured', // view featured archive
-			'/(\%b)/mod_archive/' => 'secure_POST view_archive_mod_archive', // view mod archive
+			'/(\%b)/archive/(\d+)' => 'secure_POST view_archive', // view archive
+			'/(\%b)/archive_thread/(\d+)' => 'secure archive_thread', // send thread to archive
+			'/(\%b)/archive_delete/(\d+)' => 'secure archive_delete', // delete thread from archive
+			'/(\%b)/archive_restore/(\d+)' => 'secure archive_restore', // restore thread from archive
 
 			'/shadow_recent_post/(\d+)' => 'recent_shadow_posts', // view recent posts shadow deleted
 			'/(\%b)/shadow_view/(\d+)' => 'view_shadow_thread', // view shadow deleted thread
 			'/(\%b)/shadow_restore/(\d+)/(\d+)' => 'secure_POST shadow_restore_post', // restore shadow deleted post
 			'/(\%b)/shadow_delete/(\d+)' => 'secure_POST shadow_delete_post', // permanent delete shadow deleted post
 
-			'/(\%b)/ban(&delete|&deletebyip)?/(\d+)' => 'secure_POST ban_post', // ban poster
+			'/(\%b)/ban(&delete|&deletebyip|&deletebycookies|&deletebyipglobal)?/(\d+)' => 'secure_POST ban_post', // ban poster
 			'/(\%b)/hash/(\d+)/(\d+)' => 'secure_POST ban_hash', // hashban a file
 			'/(\%b)/move/(\d+)' => 'secure_POST move', // move thread
 			'/(\%b)/move_reply/(\d+)' => 'secure_POST move_reply', // move reply
@@ -147,8 +159,6 @@ class Router {
 			'/(\%b)/(un)?cycle/(\d+)' => 'secure cycle', // cycle thread
 			'/(\%b)/(un)?hideid/(\d+)' => 'secure hideid', // hide poster ID on thread
 			'/(\%b)/bump(un)?lock/(\d+)' => 'secure bumplock', // bumplock thread
-
-			'/(\%b)/archive_thread/(\d+)' => 'secure archive_thread', // send thread to archive
 
 			'/themes' => 'themes_list', // manage themes
 			'/themes/(\w+)' => 'secure_POST theme_configure', // configure/reconfigure theme
@@ -220,8 +230,21 @@ class Router {
 			if (is_string($callback) && preg_match('/^secure /', $callback)) {
 				$key .= '(/(?P<token>[a-f0-9]{8}))?';
 			}
-			$key = str_replace('\%b', '?P<board>' . sprintf(substr($this->config['board_path'], 0, -1), $this->config['board_regex']), $key);
-			$new_pages[strpos($key, '!') === 0 ? $key : '!^' . $key . '(?:&[^&=]+=[^&]*)*$!u'] = $callback;
+
+			$key = str_replace(
+					'\%b',
+					'?P<board>' . sprintf(
+						substr($this->config['board_path'], 0, -1),
+						$this->config['board_regex']
+					),
+					$key
+			);
+
+			$new_pages[
+				strpos($key, '!') === 0
+					? $key
+					: "!^{$key}(?:&[^&=]+=[^&]*)*$!u"
+			] = $callback;
 		}
 		$this->pages = $new_pages;
 	}
@@ -229,16 +252,16 @@ class Router {
 	/**
 	 * Handles the incoming request by matching the query string to a route and executing the corresponding handler.
 	 */
-	public function handleRequest(): void {
+	public function handleRequest(Context $ctx): void {
 		foreach ($this->pages as $uri => $handler) {
 			if (preg_match($uri, $this->query, $matches)) {
-				$matches = array_slice($matches, 1);
+				$matches[0] = $ctx;
 
 				$this->processBoard($matches);
 
 				if (is_string($handler) && preg_match('/^secure(_POST)? /', $handler, $m)) {
 					$this->securePostOnly = isset($m[1]);
-					$this->processSecureHandler($matches);
+					$this->processSecureHandler($ctx, $matches);
 					$handler = $this->processHandler($handler);
 				}
 
@@ -274,7 +297,14 @@ class Router {
 			$board_match = $matches['board'];
 			unset($matches['board']);
 			$key = array_search($board_match, $matches);
-			if (preg_match('/^' . sprintf(substr($this->config['board_path'], 0, -1), '(' . $this->config['board_regex'] . ')') . '$/u', $matches[$key], $board_match)) {
+			if (preg_match(
+				'/^' . sprintf(
+					substr($this->config['board_path'], 0, -1),
+					"({$this->config['board_regex']})"
+					) . '$/u', 
+				$matches[$key], 
+				$board_match
+			)) {
 				$matches[$key] = $board_match[1];
 			}
 		}
@@ -285,9 +315,9 @@ class Router {
 	 *
 	 * @param array &$matches The array of route matches
 	 */
-	private function processSecureHandler(array &$matches): void {
+	private function processSecureHandler(Context $ctx, array &$matches): void {
 		if (!$this->securePostOnly || $_SERVER['REQUEST_METHOD'] === 'POST') {
-			$token = $this->getToken($matches);
+			$token = $this->getToken($ctx, $matches);
 
 			// CSRF-protected page; validate security token
 			$actual_query = preg_replace('!/([a-f0-9]{8})$!', '', $this->query);
@@ -304,7 +334,7 @@ class Router {
 	 * @param array &$matches The array of route matches
 	 * @return string|null The CSRF token, or null if not found
 	 */
-	private function getToken(array &$matches): ?string {
+	private function getToken(Context $ctx, array &$matches): ?string {
 		if (isset($matches['token'])) {
 			return $matches['token'];
 		} elseif (isset($_POST['token'])) {
@@ -313,7 +343,7 @@ class Router {
 			if ($this->securePostOnly) {
 				$this->error($this->config['error']['csrf']);
 			} else {
-				mod_confirm(substr($this->query, 1));
+				mod_confirm($ctx, substr($this->query, 1));
 				exit;
 			}
 		}
@@ -352,15 +382,15 @@ class Router {
 		if (is_string($handler)) {
 			if ($handler[0] === ':') {
 				$this->safeRedirect(substr($handler, 1));
-			} elseif (is_callable("mod_$handler")) {
-				call_user_func_array("mod_$handler", $matches);
+			} elseif (is_callable("mod_{$handler}")) {
+				call_user_func_array("mod_{$handler}", $matches);
 			} else {
-				$this->error("Mod page '$handler' not found!");
+				$this->error("Mod page '{$handler}' not found!");
 			}
 		} elseif (is_callable($handler)) {
 			call_user_func_array($handler, $matches);
 		} else {
-			$this->error("Mod page '$handler' not a string, and not callable!");
+			$this->error("Mod page '{$handler}' not a string, and not callable!");
 		}
 	}
 
@@ -370,7 +400,7 @@ class Router {
 	 * @param string $location The URL to redirect to
 	 */
 	private function safeRedirect(string $location): void {
-		header('Location: ' . $location, true, $this->config['redirect_http']);
+		header("Location: {$location}", true, $this->config['redirect_http']);
 		exit;
 	}
 
@@ -384,7 +414,9 @@ class Router {
 	}
 }
 
-check_login(true);
+$ctx = Vichan\build_context($config);
 
-$router = new Router($config, $mod);
-$router->handleRequest();
+check_login($ctx, true);
+
+$router = new Router($ctx, $mod);
+$router->handleRequest($ctx);

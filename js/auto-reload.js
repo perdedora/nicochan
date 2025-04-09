@@ -31,7 +31,7 @@ function scrollStopped(element, callback) {
 (function () {
 	let notify = false;
 	let isPolling = false;
-	const faviconUrl = favicon_url;
+	const faviconUrl = '/static/favicon.png';
 
 	document.addEventListener('DOMContentLoaded', function () {
 		if (typeof localStorage.auto_thread_update === 'undefined') {
@@ -183,7 +183,6 @@ function scrollStopped(element, callback) {
 
 		async function poll(manualUpdate) {
 			if (isPolling) return;
-
 			isPolling = true;
 
 			stopAutoUpdate();
@@ -229,6 +228,7 @@ function scrollStopped(element, callback) {
 		}
 
 		function handleError(error) {
+			console.error('Auto-Update Error:', error);
 			const updateSecs = document.getElementById('update_secs');
 			if (error.message.includes('Not Found')) {
 				updateSecs.textContent = _('Thread deleted or pruned');
@@ -267,6 +267,7 @@ function scrollStopped(element, callback) {
 				stopAutoUpdate();
 				document.getElementById('update_secs').textContent = '';
 			}
+
 			return loadedPosts;
 		}
 
@@ -276,23 +277,21 @@ function scrollStopped(element, callback) {
 					notify == 'all' ||
 					(notify == 'mention' && post.querySelector('.own_post'))
 				) {
-					const bodyText = post
-						.querySelector('.body').innerHTML
-						.replace(/<br\s*\/?>/gi, '\n')
+					const bodyText = post.querySelector('.body').innerHTML
+    					.replace(/<br\s*\/?>/gi, '\n')
 						.replace(/<\/p>/gi, '\n')
-						.replace(/<[^>]*>/g, '')
-						.trim();
+    					.replace(/<[^>]*>/g, '')
+    					.trim();
 					if (Notification.permission === 'granted') {
 						new Notification(`${_('New reply to ')}${document.title}`, {
 							body: bodyText,
-							icon: faviconUrl,
+							icon: faviconUrl
 						});
 					} else if(Notification.permission !== 'denied') {
 						Notification.requestPermission().then((permission) => {
 							if (permission === 'granted') {
 								new Notification(`${_('New reply to ')}${document.title}`, {
 									body: bodyText,
-									icon: faviconUrl,
 								});
 							}
 						});
@@ -371,7 +370,7 @@ function scrollStopped(element, callback) {
 				}
 				if (setting === 'auto_thread_desktop_notifications_all') {
 					notify = (document.querySelector('#auto_thread_desktop_notifications > input').checked) ? 'mention' : false;
-				}
+        		}
 			}
 		}
 	});

@@ -1,0 +1,28 @@
+{% if mod|hasPermission(config.mod.noticeboard_post) %}
+	<fieldset>
+		<legend>{% trans %}New post{% endtrans %}</legend>
+		<form style="margin:0" action="?/noticeboard" method="post">
+			<input type="hidden" name="token" value="{{ token }}">
+            {% if thread %}
+                <input type="hidden" name="thread" value="{{ thread }}">
+            {% endif %}
+			<table>
+				<tr>
+					<th>{% trans %}Name{% endtrans %}</th>
+					<td>{{ mod.username|e }}</td>
+				</tr>
+				<tr>
+					<th><label for="subject">{% trans %}Subject{% endtrans %}</label></th>
+					<td><input type="text" size="55" name="subject" id="subject" /></td>
+				</tr>
+				<tr>
+					<th>{% trans %}Body{% endtrans %}</th>
+					<td><textarea name="body" style="width:100%;height:100px"></textarea></td>
+				</tr>
+			</table>
+			<p style="text-align:center">
+				<input type="submit" value="{% if thread %}{% trans %}Replying to:{% endtrans %}{{ thread }}{% else %}{% trans %}Post to noticeboard{% endtrans %}{% endif %}" />
+			</p>
+		</form>
+	</fieldset>
+{% endif %}

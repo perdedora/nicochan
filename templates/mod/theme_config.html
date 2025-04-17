@@ -1,0 +1,35 @@
+<form action="" method="post">
+	<input type="hidden" name="token" value="{{ token }}">
+
+	{% if not config %}
+		<p style="text-align:center" class="unimportant">{% trans %}(No configuration required.){% endtrans %}</p>
+	{% else %}
+		<table>
+			{% for conf in theme.config %}
+				<tr>
+					<th>{{ conf.title }}</th>
+					<td>
+						{% if conf.type == 'checkbox' %}
+							<input type="checkbox" name="{{ conf.name }}"
+								{{ settings[conf.name] or (settings[conf.name] is not defined and conf.default) ? 'checked' : '' }}>
+						{% elseif conf.type == 'textarea' %}
+							<textarea name="{{ conf.name }}">{{ settings[conf.name] ?: conf.default ?: '' }}</textarea>
+						{% else %}
+							<input type="text" name="{{ conf.name }}"
+								value="{{ settings[conf.name] ?: conf.default ?: '' }}"
+								{{ conf.size ? 'size=' ~ conf.size : '' }}>
+						{% endif %}
+
+						{% if conf.comment %}
+							<span class="unimportant">{{ conf.comment }}</span>
+						{% endif %}
+					</td>
+				</tr>
+			{% endfor %}
+		</table>
+	{% endif %}
+
+	<p style="text-align:center">
+		<input name="install" type="submit" value="{% trans %}Install theme{% endtrans %}" />
+	</p>
+</form>

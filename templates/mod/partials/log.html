@@ -1,0 +1,33 @@
+<tr>
+    <td class="minimal">
+        {% if log.username %}
+            {% if hide_names %}
+                <em>{% trans %}hidden{% endtrans %}</em>
+            {% else %}
+                <a href="{{ not mod|hasPermission(config.mod.modlog) ? '?/new_PM/' ~ log.username|e : '?/log:' ~ log.username|e }}">{{ log.username|e }}</a>
+            {% endif %}
+        {% elseif log.mod == -1 %}
+            <em>{% trans %}system{% endtrans %}</em>
+        {% else %}
+            <em>{% trans %}deleted?{% endtrans %}</em>
+        {% endif %}
+    </td>
+    {% if geral %}
+        <td class="minimal">
+            {% if mod|hasPermission(config.mod.show_ip_modlog) %}
+                <a href="?/user_posts/ip/{{ log.ip }}">{{ log.ip }}</a>
+            {% else %}
+                <em>{% trans %}hidden{% endtrans %}</em>
+            {% endif %}
+        </td>
+    {% endif %}
+    <td class="minimal">
+        <span title="{{ log.time|strftime(config.post_date) }}">{{ log.time|ago }}</span>
+    </td>
+    <td class="minimal">
+        {{ log.board ? '<a href="?/' ~ config.board_path|format(log.board) ~ config.file_index ~ '">' ~ config.board_abbreviation|format(log.board) ~ '</a>' : '-' }}
+    </td>
+    <td>
+        {{ log.text }}
+    </td>
+</tr>

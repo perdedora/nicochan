@@ -1,0 +1,83 @@
+# static html and json
+res/
+src/
+thumb/
+media/*
+tempura/*
+*.html
+inc/instance-config.php
+
+# include some files though
+!/templates/*.html
+!/inc/config.php
+
+# minify
+/inc/lib/minify
+403.html
+404.html
+
+# .installed
+/.installed
+
+# script file
+/main.js
+
+# template-generated stylesheet
+/*.css
+
+# template-generated robot navigation
+/robots.txt
+/sitemap.xml
+
+# gzipped static files for nginx gzip_static
+*.html.gz
+*.css.gz
+*.js.gz
+*.json.gz
+*.xml.gz
+*.txt.gz
+
+# templates cache
+/templates/cache
+compiled_templates/
+
+# other stuff
+.DS_Store
+.htaccess
+thumbs.db
+# Icon?
+Thumbs.db
+*.patch
+*.diff
+*.rej
+*.orig
+*~
+*.rss
+/index.html
+/recent.css
+*.json
+/*/ukko.js
+
+# tmp filesystem
+/tmp/cache/*
+/tmp/locks/*
+!/tmp/cache/.gitkeep
+!/tmp/locks/.gitkeep
+
+# vichan custom
+favicon.ico
+/static/spoiler.png
+
+# Banners
+/static/banners/*
+/static/banners_priority/
+
+# Images from twemoji
+js/twemoji/16x16/
+/.vs
+
+# composer
+vendor/
+
+# password
+secrets.php

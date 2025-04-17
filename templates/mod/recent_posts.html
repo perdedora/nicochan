@@ -1,0 +1,30 @@
+<span id="active-page" data-page="mod"></span>
+<script src="{{ config.additional_javascript_url }}js/mod/recent-posts.js?v={{ config.resource_version }}"></script>
+<script src="js/id_colors.js?v={{ config.resource_version }}"></script>
+
+{% if not posts|length %}
+	<p style="text-align:center" class="unimportant">({% trans %}There are no active posts.{% endtrans %})</p>
+{% else %}
+	<h4>{% trans %}Viewing last{% endtrans %} {{ limit|e }} {% trans %}posts{% endtrans %}</h4>
+	<p>
+		{% trans %}View{% endtrans %} 
+		<a href="?/recent{{ shadow ? '_shadow' : '' }}/25">25</a>&nbsp;|&nbsp;
+		<a href="?/recent{{ shadow ? '_shadow' : '' }}/50">50</a>&nbsp;|&nbsp;
+		<a href="?/recent{{ shadow ? '_shadow' : '' }}/100">100</a>
+	</p>
+	<a id="erase-local-data" style="float:right; clear:both">{% trans %}Erase local data{% endtrans %}</a>
+	{% for post in posts %}
+		{% set thread = post.thread ?: post.id %}
+		<div class="post-wrapper" data-board="{{ post.board }}">
+			<hr/>
+			<a class="eita-link" id="eita-{{ post.board }}-{{ thread }}" href="?/{{ post.board }}/{{ config.dir.res }}{{ thread }}.html#{{ post.id }}">
+				/{{ post.board }}/{{ post.id }}
+			</a>
+			<br>
+			{{ post.built }}
+		</div>
+	{% endfor %}
+	<a href="{{ config.root }}mod.php?/recent{{ shadow ? '_shadow' : '' }}/{{ limit|e }}&amp;last={{ last_time|e }}">
+		{% trans %}Next{% endtrans %} {{ limit }} {% trans %}posts{% endtrans %}
+	</a>
+{% endif %}

@@ -1,0 +1,36 @@
+{% if reasons %}
+<script type="application/json" id="hashbanformid-reasons-data">
+{
+    {% for key, reason in reasons %}
+    "{{ key }}": {
+        "reason": "{{ reason|escape('js') }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+}
+</script>
+{% endif %}
+
+<form action="?/{{ board }}/hash/{{ post }}/{{ file }}" method="post" id="HashbanFormID">
+    <input type="hidden" name="token" value="{{ token }}">
+    <strong>{% trans %}Hashban Reason:{% endtrans %}</strong>
+    <br/>
+    <textarea name="reason" rows="8" cols="80"></textarea>
+    <br/>
+    <input type="submit" name="send" value="{% trans %}Submit{% endtrans %}">
+</form>
+
+{% if reasons %}
+<h3>{% trans %}Predefined Hashban Reasons:{% endtrans %}</h3>
+<form>
+    <table class="ReasonTableForm" style="margin-left: unset">
+        <tr>
+            <th>{% trans %}Reason{% endtrans %}</th>
+        </tr>
+        {% for key, reason in reasons %}
+            <tr id="ResonSelectorID_{{ key }}" class="reason-selector" data-key="{{ key }}">
+                <td>{{ reason|e }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+</form>
+{% endif %}

@@ -1,0 +1,39 @@
+<div style="max-width:800px;margin:auto">
+    <p>
+    	{% trans %}Any changes you make here will simply be appended to <code>{{ file }}</code>. 
+        If you wish to make the most of Tinyboard's customizability, you can instead edit the file directly. 
+        This page is intended for making quick changes and for those who don't have a basic understanding of PHP code.{% endtrans %}
+    </p>
+
+    {% if boards|length %}
+        <ul>
+            {% if board %}
+                <li><a href="?/config">{% trans %}Edit site-wide config{% endtrans %}</a></li>
+            {% endif %}
+            {% for _board in boards|filter(b => b.uri != board) %}
+                <li>
+                    {% set uri = '%s'|format(config.board_abbreviation|format(_board.uri)) %}
+                    <a href="?/config/{{ _board.uri }}">{% trans %}Edit config for {{ uri }}{% endtrans %}</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+
+    {% if readonly %}
+        <p>{% trans %}Tinyboard does not have the required permissions to edit {{ file }}. To make changes, you will need to change the file's permissions first or manually edit the code.{% endtrans %}</p>
+    {% endif %}
+
+    {% if not readonly %}
+        <form method="post" action="">
+    {% endif %}
+        <input type="hidden" name="token" value="{{ token }}">
+        <textarea name="code" id="code" style="margin:auto;width:100%;height:500px{% if readonly %};background:#eee{% endif %}"{% if readonly %} readonly{% endif %}>
+            {{ php }}
+        </textarea>
+        <ul style="padding:0;text-align:center;list-style:none">
+            <li>
+                <input name="save" type="submit" value="{% trans %}Save changes{% endtrans %}" {% if readonly %} disabled{% endif %}>
+            </li>
+        </ul>
+    {% if not readonly %}</form>{% endif %}
+</div>

@@ -1,0 +1,28 @@
+<table class="modlog">
+    <thead>
+        <tr>
+            <th>{% trans %}Staff{% endtrans %}</th>
+            <th>{% trans %}IP address{% endtrans %}</th>
+            <th>{% trans %}Time{% endtrans %}</th>
+            <th>{% trans %}Board{% endtrans %}</th>
+            <th>{% trans %}Action{% endtrans %}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+            {% include 'mod/partials/log.html' with {geral: true} %}
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if count > logs|length %}
+    <p class="unimportant" style="text-align:center; word-wrap:break-word">
+        {% for i in range(0, (count - 1) // config.mod.modlog_page) %}
+            {% if public %}
+                <a href="?page={{ i + 1 }}&amp;board={{ board|url_encode }}">[{{ i + 1 }}]</a>
+            {% else %}
+				<a href="?/log{{ username ? ':' ~ username : (board ? ':b:' ~ board : '') }}/{{ i + 1 }}">[{{ i + 1 }}]</a>
+            {% endif %}
+        {% endfor %}
+    </p>
+{% endif %}

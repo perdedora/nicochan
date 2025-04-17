@@ -1,0 +1,55 @@
+<form style="width:300px;margin:auto" action="?/rebuild" method="post">
+	<input type="hidden" name="token" value="{{ token }}">
+
+	<ul id="rebuild">
+		<li style="margin-bottom:8px">
+			<input type="checkbox" name="rebuild_all" id="rebuild_all">
+			<label for="rebuild_all"><strong>{% trans %}Toggle all{% endtrans %}</strong></label>
+		</li>
+		<li>
+			<input type="checkbox" name="rebuild_cache" id="rebuild_cache" checked>
+			<label for="rebuild_cache">{% trans %}Flush cache{% endtrans %}</label>
+		</li>
+		<li>
+			<input type="checkbox" name="rebuild_javascript" id="rebuild_javascript" checked>
+			<label for="rebuild_javascript">{% trans %}Rebuild Javascript{% endtrans %}</label>
+		</li>
+		<li>
+			<input type="checkbox" name="rebuild_index" id="rebuild_index" checked>
+			<label for="rebuild_index">{% trans %}Rebuild index pages{% endtrans %}</label>
+		</li>
+		<li>
+			<input type="checkbox" name="rebuild_thread" id="rebuild_thread" checked>
+			<label for="rebuild_thread">{% trans %}Rebuild thread pages{% endtrans %}</label>
+		</li>
+		<li>
+			<input type="checkbox" name="rebuild_themes" id="rebuild_themes" checked>
+			<label for="rebuild_themes">{% trans %}Rebuild themes{% endtrans %}</label>
+		</li>
+		<li>
+			<input type="checkbox" name="rebuild_archive" id="rebuild_archive">
+			<label for="rebuild_archive">{% trans %}Rebuild archive threads{% endtrans %}</label>
+		</li>
+	</ul>
+
+	<hr>
+
+	<ul id="boards">
+		<li style="margin-bottom:8px">
+			<input type="checkbox" name="boards_all" id="boards_all" checked>
+			<label for="boards_all"><strong>{% trans %}All boards{% endtrans %}</strong></label>
+		</li>
+		{% for board in boards %}
+			<li>
+				<input type="checkbox" name="board_{{ board.uri }}" id="board-{{ board.uri }}" checked>
+				<label for="board-{{ board.uri }}">
+					{{ config.board_abbreviation|format(board.uri) }} - {{ board.title|e }}
+				</label>
+			</li>
+		{% endfor %}
+	</ul>
+
+	<p style="text-align:center">
+		<input type="submit" value="{% trans %}Rebuild{% endtrans %}" name="rebuild">
+	</p>
+</form>

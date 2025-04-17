@@ -1,0 +1,27 @@
+<span class="dir-links{% if bottom %} bottom-links{% endif %}">
+	{% if config.catalog_link %}
+	<a id="unimportant"
+		href="{{ mod ? config.file_mod ~ '?' : '' }}{{ config.root }}{{ board.dir }}{{ config.catalog_link }}">
+		[{% trans %}Catalog{% endtrans %}]</a>
+	{% endif %}
+
+	&nbsp;&nbsp;<a id="unimportant" href="{{ mod ? config.file_mod ~ '?' : '' }}{{ config.root }}{{ board.dir }}">
+		[{% if index %}{% trans %}Reload{% endtrans %}{% else %}{% trans %}Back{% endtrans %}{% endif %}]</a>
+	
+	{% if not isukko %}
+	&nbsp;&nbsp;<a id="unimportant" href="{{ bottom ? '#top' : '#bottom' }}">
+		[{% if bottom %}{% trans %}Top{% endtrans %}{% else %}{% trans %}Bottom{% endtrans %}{% endif %}]</a>
+	{% endif %}
+
+	{% if config.archive.threads and not bottom %}
+	&nbsp;&nbsp;<a id="unimportant"
+		href="{{ mod ? config.file_mod ~ '?' : '' }}{{ config.root }}{{ board.dir }}{{ config.dir.archive }}">
+		[{% trans %}Archive{% endtrans %}]</a>
+	{% endif %}
+
+	{% if config.feature.threads and config.feature.link_post_page and not bottom %}
+	&nbsp;&nbsp;<a id="unimportant"
+		href="{{ mod ? config.file_mod ~ '?' : '' }}{{ config.root }}{{ board.dir }}{{ config.dir.featured }}">
+		[{% trans %}Featured{% endtrans %}]</a>
+	{% endif %}
+</span>

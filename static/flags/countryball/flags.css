@@ -1,0 +1,114 @@
+.flag {
+    max-width: 30px;
+    max-height: 30px;
+	background:url(flags.png) no-repeat
+}
+
+.flag.flag-55-BR {
+    background-position: -0 -322px;
+    width: 17px; height: 17px;
+}
+.flag.flag-ac-BR {
+    background-position: -0 -294px;
+    width: 17px; height: 14px;
+}
+.flag.flag-al-BR {
+    background-position: -0 -280px;
+    width: 17px; height: 14px;
+}
+.flag.flag-am-BR {
+    background-position: -0 -266px;
+    width: 17px; height: 14px;
+}
+.flag.flag-ap-BR {
+    background-position: -0 -252px;
+    width: 17px; height: 14px;
+}
+.flag.flag-ba-BR {
+    background-position: -0 -238px;
+    width: 17px; height: 14px;
+}
+.flag.flag-ce-BR {
+    background-position: -0 -224px;
+    width: 17px; height: 14px;
+}
+.flag.flag-df-BR {
+    background-position: -0 -210px;
+    width: 17px; height: 14px;
+}
+.flag.flag-es-BR {
+    background-position: -0 -196px;
+    width: 17px; height: 14px;
+}
+.flag.flag-go-BR {
+    background-position: -0 -339px;
+    width: 17px; height: 18px;
+}
+.flag.flag-ma-BR {
+    background-position: -0 -182px;
+    width: 17px; height: 14px;
+}
+.flag.flag-mg-BR {
+    background-position: -0 -399px;
+    width: 25px; height: 25px;
+}
+.flag.flag-ms-BR {
+    background-position: -0 -168px;
+    width: 17px; height: 14px;
+}
+.flag.flag-mt-BR {
+    background-position: -0 -154px;
+    width: 17px; height: 14px;
+}
+.flag.flag-pa-BR {
+    background-position: -0 -140px;
+    width: 17px; height: 14px;
+}
+.flag.flag-pb-BR {
+    background-position: -0 -126px;
+    width: 17px; height: 14px;
+}
+.flag.flag-pe-BR {
+    background-position: -0 -112px;
+    width: 17px; height: 14px;
+}
+.flag.flag-pr-BR {
+    background-position: -0 -98px;
+    width: 17px; height: 14px;
+}
+.flag.flag-rj-BR {
+    background-position: -0 -84px;
+    width: 17px; height: 14px;
+}
+.flag.flag-rn-BR {
+    background-position: -0 -70px;
+    width: 17px; height: 14px;
+}
+.flag.flag-ro-BR {
+    background-position: -0 -56px;
+    width: 17px; height: 14px;
+}
+.flag.flag-rr-BR {
+    background-position: -0 -42px;
+    width: 17px; height: 14px;
+}
+.flag.flag-rs-BR {
+    background-position: -0 -377px;
+    width: 17px; height: 22px;
+}
+.flag.flag-sc-BR {
+    background-position: -0 -28px;
+    width: 17px; height: 14px;
+}
+.flag.flag-se-BR {
+    background-position: -0 -357px;
+    width: 23px; height: 20px;
+}
+.flag.flag-sp-BR {
+    background-position: -0 -14px;
+    width: 17px; height: 14px;
+}
+.flag.flag-to-BR {
+    background-position: -0 -0;
+    width: 17px; height: 14px;
+}

@@ -1,0 +1,28 @@
+{# TODO: make this modulate to reuse in delete.html template #}
+<div id="post-moderation-fields">
+	{% if config.allow_delete %}
+		<div id="delete-fields">
+			{% trans %}Delete Post{% endtrans %} 
+			[<input title="{% trans %}Delete files only{% endtrans %}" type="checkbox" name="file" id="delete_file">{% trans %}File{% endtrans %}]
+			 {% trans %}File{% endtrans %} 
+			 <div class="options_files">
+				<select id="delete_spf" name="file_single">
+					<option value="*">{% trans %}All files{% endtrans %}</option>
+					{% for f in range(1, config.max_images) %}
+						<option value="{{ f|e }}">{% trans %}File{% endtrans %}# {{ f|e }}</option>
+					{% endfor %}
+				</select>
+			 </div>
+			<label for="password">{% trans %}Password{% endtrans %}</label>
+			<input id="password" type="password" name="password" size="12" maxlength="18" />
+			<input type="submit" name="delete" value="{% trans %}Delete{% endtrans %}" />
+		</div>
+	{% endif %}
+	{% if 'js/fix-report-delete-submit.js' not in config.additional_javascript %}
+		<div id="report-fields">
+			<label for="reason">{% trans %}Reason{% endtrans %}</label>
+			<input id="reason" type="text" name="reason" size="20" maxlength="30" />
+			<input type="submit" name="report" value="{% trans %}Report{% endtrans %}" />
+		</div>
+	{% endif %}
+</div>

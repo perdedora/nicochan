@@ -1,0 +1,37 @@
+<fieldset>
+	<legend>{% trans %}All Tokens{% endtrans %}</legend>
+	<table class="modlog">
+		<thead>
+			<tr>
+				<th>{% trans %}ID{% endtrans %}</th>
+				<th>{% trans %}IP{% endtrans %}</th>
+				<th>{% trans %}IP Hash{% endtrans %}</th>
+				<th>{% trans %}Token{% endtrans %}</th>
+				<th>{% trans %}Actions{% endtrans %}</th>
+			</tr>
+		</thead>
+		<tbody>
+			{% for token in wl_tokens %}
+				<tr>
+					<td>{{ token.id }}</td>
+					<td>{{ token.ip }}</td>
+					<td><a href="?/user_posts/ip/{{ token.ip_hash }}">{{ token.ip_hash }}</a></td>
+					<td>{{ token.token }}</td>
+					<td class="minimal">
+						<a href="?/change_wl/{{ token.ip|url_encode(true) }}"><small>[{% trans %}remove{% endtrans %}]</small></a>
+					</td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</fieldset>
+
+<fieldset>
+	<legend>{% trans %}Actions{% endtrans %}</legend>
+	<form action="?/change_wl" method="POST">
+		<input type="hidden" name="token" value="{{ security_token }}">
+		<input type="text" placeholder="IP" name="ip"/>
+		<input type="text" placeholder="{% trans %}Token (leave empty to generate){% endtrans %}" name="tokenu" size="25" maxlength="12" autocomplete="off"/>
+		<input type="submit" value="{% trans %}Create New Whitelist{% endtrans %}" name="create" />
+	</form>
+</fieldset>

@@ -1,0 +1,36 @@
+{% if messages|length == 0 %}
+    <p style="text-align:center" class="unimportant">({% trans %}No private messages for you.{% endtrans %})</p>
+{% else %}
+    <table class="modlog">
+        <thead>
+            <tr>
+                <th>{% trans %}ID{% endtrans %}</th>
+                <th>{% trans %}From{% endtrans %}</th>
+                <th>{% trans %}Date{% endtrans %}</th>
+                <th>{% trans %}Message snippet{% endtrans %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for message in messages %}
+                <tr{% if message.unread %} style="font-weight:bold"{% endif %}>
+                    <td class="minimal">
+                        <a href="?/PM/{{ message.id }}">{{ message.id }}</a>
+                    </td>
+                    <td class="minimal">
+                        {% if message.username %}
+                            <a href="?/new_PM/{{ message.username|e }}">{{ message.username|e }}</a>
+                        {% else %}
+                            <em>{% trans %}deleted?{% endtrans %}</em>
+                        {% endif %}
+                    </td>
+                    <td class="minimal">
+                        {{ message.time|strftime }}
+                    </td>
+                    <td>
+                        <a href="?/PM/{{ message.id }}">{{ message.snippet }}</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}

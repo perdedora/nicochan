@@ -1,0 +1,25 @@
+<form action="?/new_PM/{{ username|e }}" method="post">
+	<input type="hidden" name="token" value="{{ token }}">
+	<table>
+		<tr>
+			<th>{% trans %}To{% endtrans %}</th>
+			<td>
+				{% if mod|hasPermission(config.mod.editusers) %}
+					<a href="?/users/{{ id }}">{{ username|e }}</a>
+				{% else %}
+					{{ username|e }}
+				{% endif %}
+			</td>
+		</tr>
+		<tr>
+			<th>{% trans %}Message{% endtrans %}</th>
+			<td>
+				<textarea name="message" rows="10" cols="40">{{ message }}</textarea>
+			</td>
+		</tr>
+	</table>
+	<p style="text-align:center">
+		<input type="submit" value="{% trans %}Send message{% endtrans %}">
+	</p>
+</form>
+

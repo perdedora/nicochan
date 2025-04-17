@@ -1,0 +1,71 @@
+{% if mod|hasPermission(config.mod.news) %}
+	<fieldset>
+		<legend>{% trans %}New post{% endtrans %}</legend>
+		<form style="margin:0" action="" method="post">
+			<input type="hidden" name="token" value="{{ token }}">
+			<table>
+				<tr>
+					<th>
+						{% if mod|hasPermission(config.mod.news_custom) %}
+							<label for="name">{% trans %}Name{% endtrans %}</label>
+						{% else %}
+							{% trans %}Name{% endtrans %}
+						{% endif %}
+					</th>
+					<td>
+						{% if mod|hasPermission(config.mod.news_custom) %}
+							<input type="text" size="55" name="name" id="name" value="{{ mod.username|e }}">
+						{% else %}
+							{{ mod.username|e }}
+						{% endif %}
+					</td>
+				</tr>
+				<tr>
+					<th><label for="subject">{% trans %}Subject{% endtrans %}</label></th>
+					<td><input type="text" size="55" name="subject" id="subject"></td>
+				</tr>
+				<tr>
+					<th><label for="body">{% trans %}Body{% endtrans %}</label></th>
+					<td><textarea name="body" id="body" style="width:100%;height:100px"></textarea></td>
+				</tr>
+			</table>
+			<p style="text-align:center">
+				<input type="submit" value="{% trans %}Post news entry{% endtrans %}">
+			</p>
+		</form>
+	</fieldset>
+{% endif %}
+
+{% for post in news %}
+	<div class="ban">
+		{% if mod|hasPermission(config.mod.news_delete) %}
+			<span style="float:right;padding:2px">
+				<a class="unimportant" href="?/edit_news/delete/{{ post.id }}/{{ post.delete_token }}">[{% trans %}delete{% endtrans %}]</a>
+			</span>
+		{% endif %}
+		<h2 id="{{ post.id }}">
+			<small class="unimportant">
+				<a href="#{{ post.id }}">#</a>
+			</small>&nbsp;
+			{% if post.subject %}
+				{{ post.subject }}
+			{% else %}
+				<em>{% trans %}no subject{% endtrans %}</em>
+			{% endif %}
+			<small class="unimportant">
+				&nbsp;&mdash;&nbsp; {% trans %}by{% endtrans %} {{ post.name }} {% trans %}at{% endtrans %} {{ post.time|strftime }}
+			</small>
+		</h2>
+		<p>
+			{{ post.body|e }}
+		</p>
+	</div>
+{% endfor %}
+
+{% if count > news|length %}
+	<p class="unimportant" style="text-align:center;word-wrap:break-word">
+		{% for i in range(0, (count - 1) // config.mod.news_page + 1) %}
+			<a href="?/noticeboard_news/{{ i + 1 }}">[{{ i + 1 }}]</a>
+		{% endfor %}
+	</p>
+{% endif %}

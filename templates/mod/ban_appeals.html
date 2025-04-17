@@ -1,0 +1,111 @@
+{% for ban in ban_appeals %}
+	<form action="" method="post" style="margin: 10px 0;">
+		<input type="hidden" name="token" value="{{ token }}">
+		<table style="margin: 5px 0;">
+			<tr>
+				<th>{% trans %}Status{% endtrans %}</th>
+				<td>
+					{% if config.mod.view_banexpired and ban.expires != 0 and ban.expires < time() %}
+						{% trans %}Expired{% endtrans %}
+					{% else %}
+						{% trans %}Active{% endtrans %}
+					{% endif %}
+				</td>
+			</tr>
+			{% if mod|hasPermission(config.mod.show_ip, board.uri) %}
+				<tr>
+					<th>{% trans %}IP{% endtrans %}</th>
+					<td><a href="?/user_posts/ip/{{ ban.mask }}">{{ ban.mask|human_ip }}</a></td>
+				</tr>
+			{% endif %}
+			<tr>
+				<th>{% trans %}Reason{% endtrans %}</th>
+				<td>
+					{% if ban.reason %}
+						{{ ban.reason }}
+					{% else %}
+						<em>{% trans %}no reason{% endtrans %}</em>
+					{% endif %}
+				</td>
+			</tr>
+			<tr>
+				<th>{% trans %}Board{% endtrans %}</th>
+				<td>
+					{% if ban.board %}
+						{{ config.board_abbreviation|format(ban.board) }}
+					{% else %}
+						<em>{% trans %}all boards{% endtrans %}</em>
+					{% endif %}
+				</td>
+			</tr>
+			<tr>
+				<th>{% trans %}Set{% endtrans %}</th>
+				<td>{{ ban.created|strftime }}</td>
+			</tr>
+			<tr>
+				<th>{% trans %}Expires{% endtrans %}</th>
+				<td>
+					{% if ban.expires %}
+						{{ ban.expires|strftime }}
+					{% else %}
+						<em>{% trans %}never{% endtrans %}</em>
+					{% endif %}
+				</td>
+			</tr>
+			<tr>
+				<th>{% trans %}Seen{% endtrans %}</th>
+				<td>
+					{% if ban.seen %}
+						{% trans %}Yes{% endtrans %}
+					{% else %}
+						{% trans %}No{% endtrans %}
+					{% endif %}
+				</td>
+			</tr>
+			<tr>
+				<th>{% trans %}Staff{% endtrans %}</th>
+				<td>
+					{% if ban.username %}
+						{{ ban.username|e }}
+					{% else %}
+						<em>{% trans %}deleted?{% endtrans %}</em>
+					{% endif %}
+				</td>
+			</tr>
+		</table>
+
+		<table style="margin: 10px 0;">
+			<tr>
+				<th>{% trans %}Appeal time{% endtrans %}</th>
+				<td>{{ ban.time|strftime }}</td>
+			</tr>
+			<tr>
+				<th>{% trans %}Appeal reason{% endtrans %}</th>
+				<td>{{ ban.message|e }}</td>
+			</tr>
+			{% if mod|hasPermission(config.mod.ban_appeals, board.uri) %}
+				<tr>
+					<th>{% trans %}Action{% endtrans %}</th>
+					<td>
+						<input type="hidden" name="appeal_id" value="{{ ban.id }}">
+						<input type="submit" name="unban" value="{% trans %}Unban{% endtrans %}">
+						<input type="submit" name="deny" value="{% trans %}Deny appeal{% endtrans %}">
+					</td>
+				</tr>
+				<tr>
+					<th>{% trans %}Denial Reason (Optional on Deny){% endtrans %}</th>
+					<td>
+						<textarea name="deny-reason" rows="8" placeholder="{% trans %}Add additional message that will be shown to the denied poster{% endtrans %}"></textarea>
+					</td>
+				</tr>
+			{% endif %}
+		</table>
+
+		{% if ban.post %}
+			<div>
+				{{ ban.post.build(true) }}
+			</div>
+		{% endif %}
+	</form>
+	<hr>
+{% endfor %}

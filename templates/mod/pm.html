@@ -1,0 +1,47 @@
+<form action="" method="post">
+	<table>
+		<tr>
+			<th>{% trans %}From{% endtrans %}</th>
+			<td>
+				{% if username %} 
+					<a href="?/new_PM/{{ username|e }}">{{ username|e }}</a>
+				{% else %}
+					<em>{% trans %}deleted?{% endtrans %}</em>
+				{% endif %}
+			</td>
+		</tr>
+		{% if to != mod.id %}
+			<tr>
+				<th>{% trans %}To{% endtrans %}</th>
+				<td>
+					{% if to_username %}
+						<a href="?/new_PM/{{ to_username|e }}">{{ to_username|e }}</a>
+					{% else %}
+						<em>{% trans %}deleted?{% endtrans %}</em>
+					{% endif %}
+				</td>
+			</tr>
+		{% endif %}
+		<tr>
+			<th>{% trans %}Date{% endtrans %}</th>
+			<td>{{ time|strftime }} <small>({{ time|ago }} {% trans %}ago{% endtrans %})</small></td>
+		</tr>
+		<tr>
+			<th>{% trans %}Message{% endtrans %}</th>
+			<td>{{ message }}</td>
+		</tr>
+	</table>
+
+	<ul style="list-style:none;text-align:center;padding:0">
+		<li style="padding:5px 0">
+			<input type="submit" name="delete" value="{% trans %}Delete forever{% endtrans %}">
+		</li>
+		{% if mod|hasPermission(config.mod.create_pm) %}
+			<li style="padding:5px 0">
+				<a href="?/PM/{{ id }}/reply">
+					{% trans %}Reply with quote{% endtrans %}
+				</a>
+			</li>
+		{% endif %}
+	</ul>
+</form>

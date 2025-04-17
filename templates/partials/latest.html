@@ -1,0 +1,8 @@
+<div class="ban" style="width: auto;">
+    <h2 style="height: 15px; font-size: 1em; text-align: center">{% trans %}Recent Posts{% endtrans %}<span id="toggleRecent" style="float: right; cursor: pointer"></span></h2>
+    <ul id="postList" style="padding-left: 10px; list-style-position: inside; padding-right: 10px;">
+        {% for post in recent %}
+            <li style="padding-bottom: 8px"><strong>/{{ post.board }}/:</strong> <a title="{{ post.title|e }}" href="{{ mod ? '?/' : '/' }}{{ post.link }}">{{ post.body_nomarkup }}</a></li>
+        {% endfor %}
+    </ul>
+</div>

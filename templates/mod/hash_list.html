@@ -1,0 +1,25 @@
+<fieldset>
+    <legend>{% trans %}All Hashbans{% endtrans %}</legend>
+    <table class="modlog">
+        <thead>
+            <tr>
+                <th>{% trans %}ID{% endtrans %}</th>
+                <th>{% trans %}Hash{% endtrans %}</th>
+                <th>{% trans %}Reason{% endtrans %}</th>
+                <th>{% trans %}Actions{% endtrans %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for hash in hashlist %}
+                <tr>
+                    <td>{{ hash.id }}</td>
+                    <td style="font-family: monospace">{{ hash.hash }}</td>
+                    <td>{{ hash.reason }}</td>
+                    <td class="minimal">
+                        <a href="?/hashlist/{{ hash.id }}"><small>[{% trans %}remove{% endtrans %}]</small></a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</fieldset>

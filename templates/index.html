@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+	<script src="/js/toggleRecent.js?v={{ config.resource_version }}" defer></script>
+
+	{% include 'header.html' %}
+    
+	{% set page_num %}{% for page in pages %}{% if page.selected %}{% if page.num != 1 %}{{ page.num }}{% endif %}{% endif %}{% endfor %}{% endset %}
+	{% set meta_subject = board.subtitle|default(board.title)|e %}
+
+	<meta name="description" content="{{ meta_subject }}" />
+	<meta name="twitter:card" content="summary">
+	<meta name="twitter:title" content="{{ board.url }} - {{ board.title|e }}{% if page_num %} {% trans %}Page{% endtrans %} - {{ page_num }}{% endif %}" />
+	<meta name="twitter:description" content="{{ meta_subject }}" />
+	<meta name="twitter:image" content="{{ config.domain }}/{{ config.logo }}" />
+	<meta property="og:title" content="{{ board.url }} - {{ board.title|e }}{% if page_num %} {% trans %}Page{% endtrans %} - {{ page_num }}{% endif %}" />
+	<meta property="og:type" content="article" />
+	<meta property="og:url" content="{{ config.domain }}/{{ board.uri }}/{{ page_num ? page_num ~ (config.remove_ext ? '' : '.html') : '' }}" />
+	<meta property="og:image" content="{{ config.domain }}/{{ config.logo }}" />
+	<meta property="og:description" content="{{ meta_subject }}" />
+	<title>{{ board.url }} - {{ board.title|e }}{% if page_num %} {% trans %}Page{% endtrans %} - {{ page_num }}{% endif %}</title>
+</head>
+<body class="8chan vichan {{ mod ? 'is-moderator' : 'is-not-moderator' }} active-{{ no_post_form ? 'ukko' : 'index' }}" data-stylesheet="{{ config.default_stylesheet.1|default('default') }}">
+	<div class="bar top">
+		{{ boardlist.top }}
+	</div>
+	<a name="top"></a>
+	<span id="active-page" data-page="{{ isukko ? 'ukko' : 'index' }}"></span>
+    
+	{% if pm %}
+		{% include 'partials/top_notice.html' %}
+	{% endif %}
+
+	{% if config.url_banner %}
+		{% include 'partials/banner.html' %}
+	{% endif %}
+
+	{% include 'partials/header.html' %}
+
+	{{ config.ad.top }}
+
+	{% if not no_post_form %}
+		{% include 'post_form.html' %}
+	{% endif %}
+
+	{% if recent %}
+		{% include 'partials/latest.html' %}
+	{% endif %}
+
+	{% if config.page_nav_top and not isukko %}
+		{% include 'partials/page.html' with { top: true } %}
+	{% endif %}
+
+	{% if config.global_message %}
+		{% include 'partials/global_message.html' %}
+	{% endif %}
+	<hr />
+
+	{% if config.board_search %}
+		<form style="display:inline" action="/search.php">
+			<p style="margin: 10px;">
+				<input type="text" name="search" placeholder="{{ board.uri }} search">
+				<input type="hidden" name="board" value="{{ board.uri }}">
+				<input type="submit" value="{% trans %}Search{% endtrans %}">
+			</p>
+		</form>
+	{% endif %}
+    
+	<form name="postcontrols" action="{{ config.post_url }}" method="post">
+		<input type="hidden" name="board" value="{{ board.uri }}" />
+		{% if mod %}<input type="hidden" name="mod" value="1" />{% endif %}
+
+		{% include 'partials/buttons.html' with { index: true } %}
+		<hr />
+		{{ body }}
+		{% include 'partials/report_delete.html' %}
+		{% if mod %}
+			{% include 'partials/reports_count.html' %}
+		{% endif %}
+
+		{% include 'partials/buttons.html' with { index: true, bottom: true } %}
+	</form>
+
+	<a href="#top" class="elevadorCima elevador">△</a>
+	{% if not isukko %}
+		{% include 'partials/page.html' %}
+		<a name="bottom"></a>
+		<a href="#bottom" class="elevadorBaixo elevador">▽</a>
+	{% endif %}
+    
+	{{ boardlist.bottom }}
+	<br />
+
+	<div class="center">
+		{{ config.ad.bottom }}
+	</div>
+
+	{% include 'footer.html' %}
+</body>
+</html>

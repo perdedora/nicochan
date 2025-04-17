@@ -1,0 +1,6 @@
+{% if config.poster_ids %}
+  {% set poster_id = post.ip|poster_id(post.thread ?: post.id) %}
+	<span class="poster_id" {% if hideposterid and mod %}style="opacity: 0.5;"{% endif %}>
+		{{ poster_id }}
+	</span>
+{% endif %}

@@ -1,0 +1,8 @@
+<a href="/" style="display: block; margin: 20px auto 0 auto;
+    {% if config.banner_width or config.banner_height %} width:{{ config.banner_width }}px; height:{{ config.banner_height }}px;{% endif %}">
+    <img class="board_image" src="{{ config.url_banner }}/board/{{ not isukko ? board.uri|url_encode : config.banner_overboard|url_encode }}" 
+    {% if config.banner_width or config.banner_height %}
+        style="width: {{ config.banner_width }}px; height: {{ config.banner_height }}px;"
+    {% endif %} 
+    loading="lazy" />
+</a>

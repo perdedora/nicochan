@@ -1,0 +1,79 @@
+<script src="js/mod/chartist.min.js?v={{ config.resource_version }}"></script>
+<script src="js/mod/stats.js?v={{ config.resource_version }}"></script>
+<link rel="stylesheet" href="stylesheets/mod/chartist.min.css?v={{ config.resource_version }}">
+
+{% if statistics_table %}
+	<table class="modlog" style="width: 50%;">
+		<thead>
+			<tr>
+				<th style="padding: 0px 5px; text-align: center;">{% trans %}Board{% endtrans %}</th>
+				<th style="padding: 0px 5px; text-align: center;">{% trans %}Posts Per Hour{% endtrans %}</th>
+				<th style="padding: 0px 5px; text-align: center;">{% trans %}IPs last hour{% endtrans %}</th>
+				<th style="padding: 0px 5px; text-align: center;">{% trans %}IPs last day{% endtrans %}</th>
+				<th style="padding: 0px 5px; text-align: center;">{% trans %}IPs last week{% endtrans %}</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr>
+				<td><span>{% trans %}Total{% endtrans %}</span></td>
+				<td style="text-align: center;"><span>{{ statistics_table.pph }}</span></td>
+				<td style="text-align: center;"><span>{{ statistics_table.hourly_ips }}</span></td>
+				<td style="text-align: center;"><span>{{ statistics_table.daily_ips }}</span></td>
+				<td style="text-align: center;"><span>{{ statistics_table.weekly_ips }}</span></td>
+			</tr>
+			{% for boardStat in statistics_table.boards %}
+				<tr>
+					<td>
+						<span><a href="{{ mod ? '?/' : '' }}{{ boardStat.title }}/">/{{ boardStat.title }}/</a></span>
+					</td>
+					<td style="text-align: center;"><span>{{ boardStat.pph }}</span></td>
+					<td style="text-align: center;"><span>{{ boardStat.hourly_ips }}</span></td>
+					<td style="text-align: center;"><span>{{ boardStat.daily_ips }}</span></td>
+					<td style="text-align: center;"><span>{{ boardStat.weekly_ips }}</span></td>
+				</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+{% endif %}
+
+{% if mod or public_hourly %}
+	<h2>{% trans %}Hourly Statistics{% endtrans %}</h2>
+	<section>
+		<div class="ct-chart" id="hourly"></div>
+	</section>
+{% endif %}
+
+<h2>{% trans %}Weekly Statistics for this (and prev) week{% endtrans %}</h2>
+<section>
+	<div class="ct-chart" id="week"></div>
+</section>
+
+<h2>{% trans %}View Board Specific Stats{% endtrans %}</h2>
+<section>
+    {% if mod %}
+        <a href="?/statistics">[{% trans %}Full Statistics{% endtrans %}]</a>
+        {% for board in boards %}
+            <a href="?/{{ board.uri }}/statistics">[{{ board.uri }}]</a>
+        {% endfor %}
+    {% else %}
+        <a href="{{ config.root }}/{{ stat_filename }}">[{% trans %}Full Statistics{% endtrans %}]</a>
+        {% for board in boards %}
+            <a href="{{ config.root }}/{{ board.uri }}/{{ stat_filename }}">[{{ board.uri }}]</a>
+        {% endfor %}
+    {% endif %}
+</section>
+<script type="application/json" id="statistics-24h-data">
+    {{ statistics_24h }}
+</script>
+
+<script type="application/json" id="statistics-week-labels-data">
+    {{ statistics_week_labels }}
+</script>
+
+<script type="application/json" id="statistics-week-past-data">
+    {{ statistics_week_past }}
+</script>
+
+<script type="application/json" id="statistics-week-data">
+    {{ statistics_week }}
+</script>

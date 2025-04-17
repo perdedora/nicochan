@@ -1,0 +1,29 @@
+{% if not json %}
+	<script src="/js/deletePage.js?v={{ config.resource_version }}"></script>
+{% endif %}
+{% if config.allow_delete %}
+	<form action="/{{ config.file_post }}" method="post">
+		<div class="ban delete-page">
+			<h2 style="margin-bottom: 5%">{{ title|e }}</h2>
+			{% if delete_file %}
+				{% trans %}Delete Post{% endtrans %}&nbsp;&nbsp;
+				[<input title="{% trans %}Delete files only{% endtrans %}" type="checkbox" name="file" id="delete_file">{% trans %}File{% endtrans %}]&nbsp;&nbsp;
+				<div class="options_files">
+					<select id="delete_spf" name="file_single">
+						<option value="*">{% trans %}All files{% endtrans %}</option>
+						{% for f in range(1, num_files) %}
+							<option value="{{ f }}">{% trans %}File{% endtrans %}# {{ f|e }}</option>
+						{% endfor %}
+					</select>
+				</div>
+			{% endif %}
+			<br />
+			<label for="password">{% trans %}Password{% endtrans %}</label>
+			<input id="password" type="password" name="password" size="12" maxlength="18">
+			<input type="hidden" name="board" value="{{ board.uri }}">
+			<input type="hidden" name="delete_{{ post|e }}">
+			<input type="submit" name="delete" value="{% trans %}Delete{% endtrans %}" />
+			<input type="hidden" name="delete" value="1">
+		</div>
+	</form>
+{% endif %}

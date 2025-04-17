@@ -1,0 +1,9 @@
+<header>
+    <h1>{{ board.url }} - {{ board.title|e }}</h1>
+    <div class="subtitle">
+	    {{ config.allow_subtitle_html ? board.subtitle|raw : board.subtitle|e }}
+        {% if mod %}
+            <p><a href="?/">{% trans %}Return to dashboard{% endtrans %}</a></p>
+        {% endif %}
+    </div>
+</header>

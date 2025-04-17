@@ -1,0 +1,237 @@
+{% if mod %}
+    <div class="menu-content" id="menu-content">
+        <div class="menu-header">
+            <span class="post-header center">
+                {% trans %}Moderating Post #{% endtrans %}{{ post.id }}
+            </span>
+            <input type="text" class="search-input" placeholder="{% trans %}Search...{% endtrans %}">
+        </div>
+        {% if not post.shadow %}
+        <ul>
+            <li class="menu-section" id="frequently-used-section">
+                <span class="section-title">{% trans %}Frequently Used{% endtrans %}</span>
+                <ul class="frequently-used-list"></ul>
+            </li>
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Deletion{% endtrans %}</span>
+                <ul>
+                    {% if mod|hasPermission(config.mod.delete, board.uri) %}
+                        <li>
+                            {% set link_delete_title %}{% trans %}Delete{% endtrans %}{% endset %}
+                            {% set link_delete_confirm %}{% trans %}Are you sure you want to delete this?{% endtrans %}{% endset %}
+                            {{ secure_link_confirm(config.mod.link_delete, link_delete_title, link_delete_confirm, board.dir ~ 'delete/' ~ post.id, 'delete', true) }}
+                        </li>
+                        {% if mod|hasPermission(config.mod.auto_delete_shadow_post, board.uri) %}
+                            <li>
+                                {% set link_shadow_delete_title %}{% trans %}Shadow Delete{% endtrans %}{% endset %}
+                                {% set link_shadow_delete_confirm %}{% trans %}Are you sure you want to shadow delete this?{% endtrans %}{% endset %}
+                                {{ secure_link_confirm(config.mod.link_force_shadow_delete, link_shadow_delete_title, link_shadow_delete_confirm, board.dir ~ 'delete_shadow/' ~ post.id, 'shadow_delete', true) }}
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.deletebyip, board.uri) %}
+                        <li>
+                            {% set link_deletebyip_title %}{% trans %}Delete all posts by IP{% endtrans %}{% endset %}
+                            {% set link_deletebyip_confirm %}{% trans %}Are you sure you want to delete all posts by this IP address?{% endtrans %}{% endset %}
+                            {{ secure_link_confirm(config.mod.link_deletebyip, link_deletebyip_title, link_deletebyip_confirm, board.dir ~ 'deletebyip/' ~ post.id, 'deletebyip', true) }}
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.deletebyip_global, board.uri) %}
+                        <li>
+                            {% set link_deletebyipglobal_title %}{% trans %}Delete all posts by IP across all boards{% endtrans %}{% endset %}
+                            {% set link_deletebyipglobal_confirm %}{% trans %}Are you sure you want to delete all posts by this IP address, across all boards?{% endtrans %}{% endset %}
+                            {{ secure_link_confirm(config.mod.link_deletebyip_global, link_deletebyipglobal_title, link_deletebyipglobal_confirm, board.dir ~ 'deletebyip&global/' ~ post.id, 'deleteipglobal', true) }}
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.bandelete, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Ban & Delete{% endtrans %}" data-action="bandelete" href="?/{{ board.dir }}ban&amp;delete/{{ post.id }}">{{ config.mod.link_bandelete }} - {% trans %}Ban & Delete{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.bandeletebyip, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Ban & Delete all post by IP{% endtrans %}" data-action="bandeleteip" href="?/{{ board.dir }}ban&amp;deletebyip/{{ post.id }}">{{ config.mod.link_bandeletebyip }} - {% trans %}Ban & Delete all post by IP{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.bandeletebyipglobal, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Ban & Delete all post by IP global{% endtrans %}" data-action="bandeleteipglobal" href="?/{{ board.dir }}ban&amp;deletebyipglobal/{{ post.id }}">{{ config.mod.link_bandeletebyipglobal }} - {% trans %}Ban & Delete all post by IP global{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.bandeletebycookies, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Ban & Delete all post by cookies{% endtrans %}" data-action="bandeletecookies" href="?/{{ board.dir }}ban&amp;deletebycookies/{{ post.id }}">{{ config.mod.link_deletebycookies }} - {% trans %}Ban & Delete all post by cookies{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.warning, board.uri) and mod|hasPermission(config.mod.delete, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Issue Warning & Delete{% endtrans %}" data-action="warningdelete" href="?/{{ board.dir }}warning&amp;delete/{{ post.id }}">{{ config.mod.link_warningdelete }} - {% trans %}Issue Warning & Delete{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </li>
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Bans and Warnings{% endtrans %}</span>
+                <ul>
+                    {% if mod|hasPermission(config.mod.ban, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Ban{% endtrans %}" data-action="ban" href="?/{{ board.dir }}ban/{{ post.id }}">{{ config.mod.link_ban }} - {% trans %}Ban{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.warning, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Issue Warning{% endtrans %}" data-action="warning" href="?/{{ board.dir }}warning/{{ post.id }}">{{ config.mod.link_warning }} - {% trans %}Issue Warning{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.nicenotice, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Issue Nicenotice / Notice of Concern{% endtrans %}" data-action="nicenotice" href="?/{{ board.dir }}nicenotice/{{ post.id }}">{{ config.mod.link_nicenotice }} - {% trans %}Issue Nicenotice / Notice of Concern{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </li>
+            {% if not post.thread %}
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Thread Management{% endtrans %}</span>
+                <ul>
+                    {% if mod|hasPermission(config.mod.move, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Move thread to another board{% endtrans %}" data-action="movethread" href="?/{{ board.dir }}move/{{ post.id }}">{{ config.mod.link_move }} - {% trans %}Move thread to another board{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.sticky, board.uri) %}
+                        {% if post.sticky %}
+                            <li>
+                                <a title="{% trans %}Make thread not sticky{% endtrans %}" data-action="unsticky" href="?/{{ secure_link(board.dir ~ 'unsticky/' ~ post.id) }}">{{ config.mod.link_desticky }} - {% trans %}Make thread not sticky{% endtrans %}</a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a title="{% trans %}Make thread sticky{% endtrans %}" data-action="sticky" href="?/{{ secure_link(board.dir ~ 'sticky/' ~ post.id) }}">{{ config.mod.link_sticky }} - {% trans %}Make thread sticky{% endtrans %}</a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.bumplock, board.uri) %}
+                        {% if post.sage %}
+                            <li>
+                                <a title="{% trans %}Allow thread to be bumped{% endtrans %}" data-action="unbumplock" href="?/{{ secure_link(board.dir ~ 'bumpunlock/' ~ post.id) }}">{{ config.mod.link_bumpunlock }} - {% trans %}Allow thread to be bumped{% endtrans %}</a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a title="{% trans %}Prevent thread from being bumped{% endtrans %}" data-action="bumplock" href="?/{{ secure_link(board.dir ~ 'bumplock/' ~ post.id) }}">{{ config.mod.link_bumplock }} - {% trans %}Prevent thread from being bumped{% endtrans %}</a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.lock, board.uri) %}
+                        {% if post.locked %}
+                            <li>
+                                <a title="{% trans %}Unlock thread{% endtrans %}" data-action="unlockthread" href="?/{{ secure_link(board.dir ~ 'unlock/' ~ post.id) }}">{{ config.mod.link_unlock }} - {% trans %}Unlock thread{% endtrans %}</a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a title="{% trans %}Lock thread{% endtrans %}" data-action="lockthread" href="?/{{ secure_link(board.dir ~ 'lock/' ~ post.id) }}">{{ config.mod.link_lock }} - {% trans %}Lock thread{% endtrans %}</a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.cycle, board.uri) %}
+                        {% if post.cycle %}
+                            <li>
+                                <a title="{% trans %}Make thread not cycle{% endtrans %}" data-action="uncycle" href="?/{{ secure_link(board.dir ~ 'uncycle/' ~ post.id) }}">{{ config.mod.link_uncycle }}</a> - {% trans %}Make thread not cycle{% endtrans %}
+                            </li>
+                        {% else %}
+                            <li>
+                                <a title="{% trans %}Make thread cycle{% endtrans %}" data-action="cycle" href="?/{{ secure_link(board.dir ~ 'cycle/' ~ post.id) }}">{{ config.mod.link_cycle }} - {% trans %}Make thread cycle{% endtrans %}</a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.merge, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Merge thread with another thread{% endtrans %}" data-action="merge" href="?/{{ board.dir }}merge/{{ post.id }}">{{ config.mod.link_merge }} - {% trans %}Merge thread with another thread{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.hideid, board.uri) %}
+                        {% if post.hideid %}
+                            <li>
+                                <a title="{% trans %}Show Poster IDs in thread{% endtrans %}" data-action="showid" href="?/{{ secure_link(board.dir ~ 'unhideid/' ~ post.id) }}">{{ config.mod.link_unhideid }} - {% trans %}Show Poster IDs in thread{% endtrans %}</a>
+                            </li>
+                        {% else %}
+                            <li>
+                                <a title="{% trans %}Hide Poster IDs in thread{% endtrans %}" data-action="hideid" href="?/{{ secure_link(board.dir ~ 'hideid/' ~ post.id) }}">{{ config.mod.link_hideid }} - {% trans %}Hide Poster IDs in thread{% endtrans %}</a>
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+            </li>
+            {% else %}
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Post Management{% endtrans %}</span>
+                <ul>
+                    <li>
+                        <a title="{% trans %}Move reply to another board{% endtrans %}" data-action="movereply" href="?/{{ board.dir }}move_reply/{{ post.id }}">{{ config.mod.link_move }} - {% trans %}Move reply to another board{% endtrans %}</a>
+                    </li>
+                </ul>
+            </li>
+            {% endif %}
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Misc{% endtrans %}</span>
+                <ul>
+                    <li>
+                        <a title="{% trans %}Edit post{% endtrans %}" data-action="editpost" href="?/{{ board.dir }}edit{% if config.mod.raw_html_default %}_raw{% endif %}/{{ post.id }}">{{ config.mod.link_editpost }} - {% trans %}Edit post{% endtrans %}</a>
+                    </li>
+                    {% if mod|hasPermission(config.mod.bantz, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Add Bantz{% endtrans %}" data-action="bantz" href="?/{{ board.dir }}bantz/{{ post.id }}">{{ config.mod.link_bantz }} - {% trans %}Add Bantz{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </li>
+        {% if not post.thread %}
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Archive{% endtrans %}</span>
+                <ul>
+                    {% if not post.archive %}
+                        {% if mod|hasPermission(config.mod.send_threads_to_archive, board.uri) %}
+                            <li>
+                                {% set link_sendarchive_title %}{% trans %}Send thread to archive{% endtrans %}{% endset %}
+                                {% set link_sendarchive_confirm %}{% trans %}Are you sure you want to send thread to archive and delete it from the catalog?{% endtrans %}{% endset %}
+                                {{ secure_link_confirm(config.mod.link_send_to_archive, link_sendarchive_title, link_sendarchive_confirm, board.dir ~ 'archive_thread/' ~ post.id, 'archive', true) }}
+                            </li>
+                        {% endif %}
+                    {% else %}
+                        {% if mod|hasPermission(config.mod.restore_archive_post, board.uri) %}
+                            <li>
+                                {% set link_restorearchive_title %}{% trans %}Restore Archive Thread{% endtrans %}{% endset %}
+                                {% set link_restorearchive_confirm %}{% trans %}Are you sure you want to restore this thread from the archive? It will be placed at last page{% endtrans %}{% endset %}
+                                {{ secure_link_confirm(config.mod.link_archive_restore, link_restorearchive_title, link_restorearchive_confirm, board.dir ~ 'archive_restore/' ~ post.id, 'restorearchive', true) }}
+                            </li>
+                        {% endif %}
+                        {% if mod|hasPermission(config.mod.delete_archive_post, board.uri) %}
+                            <li>
+                                {% set link_deletearchive_title %}{% trans %}Permanent Delete Archive Thread{% endtrans %}{% endset %}
+                                {% set link_deletearchive_confirm %}{% trans %}Are you sure you want to permanent delete this thread from the archive? This action will NOT be reversible!{% endtrans %}{% endset %}
+                                {{ secure_link_confirm(config.mod.link_archive_delete, link_deletearchive_title, link_deletearchive_confirm, board.dir ~ 'archive_delete/' ~ post.id, 'deletearchive', true) }}
+                            </li>
+                        {% endif %}
+                    {% endif %}
+                </ul>
+            </li>
+        {% endif %}
+        {% else %}
+            <li class="menu-section">
+                <span class="section-title">{% trans %}Shadow Delete{% endtrans %}</span>
+                <ul>
+                    {% if mod|hasPermission(config.mod.restore_shadow_post, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Restore Shadow Deleted Post{% endtrans %}" data-action="restoreshadow" href="?/{{ board.dir }}shadow_restore/{{ post.id }}/{{ post.thread ?? 0 }}">{{ config.mod.link_shadow_restore }} - {% trans %}Restore Shadow Deleted Post{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                    {% if mod|hasPermission(config.mod.delete_shadow_post, board.uri) %}
+                        <li>
+                            <a title="{% trans %}Permanent Delete Shadow Deleted Post{% endtrans %}" data-action="permashadowdelete" href="?/{{ board.dir }}shadow_delete/{{ post.id }}">{{ config.mod.link_shadow_delete }} - {% trans %}Permanent Delete Shadow Deleted Post{% endtrans %}</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </li>
+        {% endif %}
+        </ul>
+    </div>
+{% endif %}

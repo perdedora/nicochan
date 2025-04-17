@@ -1,0 +1,109 @@
+{% apply spaceless %}
+    <div class="thread {% if post.shadow %}shadow-thread{% endif %}" id="thread_{{ post.id }}" data-board="{{ board.uri }}">
+        {% if not index %}
+            <a id="{{ post.id }}" class="post_anchor"></a>
+        {% endif %}
+
+        {% include 'post/fileinfo.html' %}
+        
+        <div class="post op" id="op_{{ post.id }}" {% if post.num_files > 1 %}style="clear:both"{% endif %} data-board="{{ board.uri }}">
+            <div class="intro">
+
+                {% include 'partials/post_header.html' %}
+
+                {% if post.sticky %}
+                    {% if config.font_awesome %}
+                        <i class="fa fa-thumb-tack" title="{% trans %}Sticky{% endtrans %}"></i>
+                    {% else %}
+                        <img class="icon" title="{% trans %}Sticky{% endtrans %}" src="{{ config.image_sticky }}" alt="{% trans %}Sticky{% endtrans %}" />
+                    {% endif %}
+                {% endif %}
+
+                {% if post.locked %}
+                    {% if config.font_awesome %}
+                        <i class="fa fa-lock" title="{% trans %}Locked{% endtrans %}"></i>
+                    {% else %}
+                        <img class="icon" title="{% trans %}Locked{% endtrans %}" src="{{ config.image_locked }}" alt="{% trans %}Locked{% endtrans %}" />
+                    {% endif %}
+                {% endif %}
+
+                {% if post.sage and (config.mod.view_bumplock < 0 or (post.mod and post.mod|hasPermission(config.mod.view_bumplock, board.uri))) %}
+                    {% if config.font_awesome %}
+                        <i class="fa fa-anchor" title="{% trans %}Bumplocked'{% endtrans %}"></i>
+                    {% else %}
+                        <img class="icon" title="{% trans %}Bumplocked{% endtrans %}" src="{{ config.image_bumplocked }}" alt="{% trans %}Bumplocked{% endtrans %}" />
+                    {% endif %}
+                {% endif %}
+
+                {% if post.cycle %}
+                    {% if config.font_awesome %}
+                        <i class="fa fa-refresh" title="{% trans %}Cyclical{% endtrans %}"></i>
+                    {% else %}
+                        <img class="icon" title="{% trans %}Cyclical{% endtrans %}" src="{{ config.image_sticky }}" alt="{% trans %}Cyclical{% endtrans %}" />
+                    {% endif %}
+                {% endif %}
+
+                {% if isnoko50 or index %}
+                    <a href="{{ post.link('', false, true) }}">[{% trans %}View All{% endtrans %}]</a>
+                {% endif %}
+
+            </div>
+            <div class="body">
+                {% endapply %}
+                {% if index %}
+                    {{ post.body|truncate_body(post.link('', false)) }}
+                {% else %}
+                    {{ post.body }}
+                {% endif %}
+                {% apply spaceless %}
+                {% include 'partials/modifiers.html' %}
+            </div>
+            {% if post.omitted or post.omitted_images %}
+                <span class="omitted">
+                    {% if post.omitted %}
+                        {% trans %}
+                            1 post
+                        {% plural post.omitted %}
+                            {{ count }} posts
+                        {% endtrans %}
+                        {% if post.omitted_images %}
+                            {% trans %}and{% endtrans %}&nbsp;
+                        {% endif %}
+                    {% endif %}
+                    {% if post.omitted_images %}
+                        {% trans %}
+                            1 image reply.
+                        {% plural post.omitted_images %}
+                            {{ count }} image replies omitted.
+                        {% endtrans %}
+                    {% endif %}
+                </span>
+                <span class="thread-buttons">
+                    {% if index %}
+                        <a id="reply-button" href="{{ post.link('', false, true) }}" data-thread-id="{{ post.id }}"><i class="fa fa-comment"></i>{% trans %}Reply{% endtrans %}</a>
+                    {% endif %}
+                </span>&nbsp;
+                <span class="reply_view">{% trans %}Click reply to view.{% endtrans %}</span>
+            {% endif %}
+        </div>
+    {% endapply %}
+    {% set hr = post.hr %}
+    {% set post_shadow = post.shadow %}
+    {% set post_omitted = post.omitted %}
+    {% set post_omitted_images = post.omitted_images %}
+
+    {% for post in post.posts %}
+        {% include 'post_reply.html' %}
+    {% endfor %}
+    <br class="clear"/>
+    {% if not post_shadow %}
+        {% if hasnoko50 and not isnoko50 %}
+            {% set lastcount = config.noko50_count %}
+            <a href="{{ post.link('', '50', true) }}">[{% trans %}Last 1 Post{% plural lastcount %}Last {{ count }} Posts{% endtrans %}]</a>
+        {% endif %}
+    {% endif %}
+
+    {% if hr %}
+        <hr/>
+    {% endif %}
+</div>

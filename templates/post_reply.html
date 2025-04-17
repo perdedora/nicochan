@@ -1,0 +1,24 @@
+{% apply spaceless %}
+    <div class="post reply {% if post.shadow %}shadow-post{% endif %}" id="reply_{{ post.id }}" data-board="{{ board.uri }}">
+        <div class="intro">
+            {% if not index %}
+                <a id="{{ post.id }}" class="post_anchor"></a>
+            {% endif %}
+            {% include 'partials/post_header.html' %}
+        </div>
+
+        {% include 'post/fileinfo.html' %}
+
+        <div class="body" {% if post.files|length > 1 %}style="clear:both"{% endif %}>
+            {% endapply %}
+            {% if index %}
+                {{ post.body|truncate_body(post.link('', false)) }}
+            {% else %}
+                {{ post.body }}
+            {% endif %}
+            {% apply spaceless %}
+            {% include 'partials/modifiers.html' %}
+        </div>
+    </div>
+    <br/>
+{% endapply %}

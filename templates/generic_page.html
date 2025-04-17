@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+    {% include 'header.html' %}
+    <title>{{ board.url }} - {{ board.name }}</title>
+</head>
+<body class="8chan vichan {{ mod ? 'is-moderator' : 'is-not-moderator' }}" data-stylesheet="{{ config.default_stylesheet.1|default('default') }}">
+    
+    {{ boardlist.top }}
+
+    {% if pm %}
+        {% include 'partials/top_notice.html' %}
+    {% endif %}
+
+    {% if config.url_banner %}
+        {% include 'partials/banner.html' %}
+    {% endif %}
+
+    {% include 'post_form.html' %}
+
+    {% if config.global_message %}
+        {% include 'partials/global_message.html' %}
+    {% endif %}
+    
+    <hr />
+
+    <form name="postcontrols" action="{{ config.post_url }}" method="post">
+        <input type="hidden" name="board" value="{{ board.uri }}" />
+        {% if mod %}<input type="hidden" name="mod" value="1" />{% endif %}
+        {{ body }}
+        {% include 'partials/report_delete.html' %}
+    </form>
+
+    {% include 'partials/page.html' %}
+    
+    {{ boardlist.bottom }}
+
+    {% include 'footer.html' %}
+</body>
+</html>

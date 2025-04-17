@@ -1,0 +1,50 @@
+<div class="ban report-page" id="global">
+	<h2 class="center">{{ title|e }}</h2>
+	<p class="center" style="font-size: 12px;">Ao submeter esta denúncia, você aceita que leu e entendeu as <a target="_blank" href="/rules">regras</a>.</p>
+	<form action="/{{ config.file_post }}" method="post" id="report-form">
+		<input type="hidden" name="board" value="{{ board.uri }}">
+		<input type="hidden" name="delete_{{ post|e }}" value="1">
+		
+		{% if config.captcha.report_captcha %}
+			<hr>
+			<p>{% trans %}To submit your report, please fill out the CAPTCHA below.{% endtrans %}</p>
+			<tr class="captcha">
+				<td>
+					<noscript>
+						<input class="captcha_text" type="text" name="captcha_text" size="32" maxlength="6" autocomplete="off">
+						<div class="captcha_html">
+							<img src="{{ config.captcha.provider_get }}?mode=get&raw=1">
+						</div>
+					</noscript>
+				</td>
+			</tr>
+		{% endif %}
+
+		<table>
+			{% if config.report_system_predefined %}
+				<tr>
+					<td>
+						<strong>{% trans %}Reason{% endtrans %}:</strong><br>
+						<select name="reason">
+							<option value="">{% trans %}Select a reason{% endtrans %}</option>
+							{% for key, reason in config.report_reasons %}
+								<option value="reason_{{ key }}">{{ reason|e }}</option>
+							{% endfor %}
+						</select>
+					</td>
+				</tr>
+			{% else %}
+				<tr>
+					<td>
+						<strong>{% trans %}Reason{% endtrans %}</strong>
+						<input id="reason" type="text" name="reason" size="20" maxlength="30" />
+					</td>
+				</tr>
+			{% endif %}
+		</table>
+		<p class="center">
+			<input name="report" value="{% trans %}Submit{% endtrans %}" type="submit">
+		</p>
+		<input type="hidden" name="report" value="true">
+	</form>
+</div>

@@ -1,0 +1,80 @@
+<p>
+    {% trans %}Any changes you make here will simply be appended to <code>{{ file }}</code>. 
+    If you wish to make the most of Tinyboard's customizability, you can instead edit the file directly. 
+    This page is intended for making quick changes and for those who don\'t have a basic understanding of PHP code.{% endtrans %}
+</p>
+
+{% if boards|length %}
+    <ul>
+        {% if board %}
+            <li><a href="?/config">{% trans %}Edit site-wide config{% endtrans %}</a></li>
+        {% endif %}
+        {% for _board in boards|filter(b => b.uri != board) %}
+            <li>
+                {% set uri = '%s'|format(config.board_abbreviation|format(_board.uri)) %}
+                <a href="?/config/{{ _board.uri }}">{% trans %}Edit config for {{ uri }}{% endtrans %}</a>
+            </li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+<form method="post" action="">
+    <input type="hidden" name="token" value="{{ token }}">
+    <table class="mod config-editor">
+        <thead>
+            <tr>
+                <th class="minimal">{% trans %}Name{% endtrans %}</th>
+                <th>{% trans %}Value{% endtrans %}</th>
+                <th class="minimal">{% trans %}Type{% endtrans %}</th>
+                <th>{% trans %}Description{% endtrans %}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for var in conf|filter(var => var.type != 'array') %}
+                {% set name = 'cf_' ~ var.name|join('/') %}
+
+                <tr>
+                    <th class="minimal">
+                        {{ var.name|join(' &rarr; ') }}
+                    </th>
+
+                    <td>
+                        {% if var.type == 'string' %}
+                            <input name="{{ name }}" type="text" value="{{ var.value|e }}">
+                        {% elseif var.permissions %}
+                            <select name="{{ name }}">
+                                {% for group_value, group_name in config.mod.groups %}
+                                    <option value="{{ group_value }}"{% if var.value == group_value %} selected{% endif %}>
+                                        {{ group_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        {% elseif var.type == 'integer' %}
+                            <input name="{{ name }}" type="number" value="{{ var.value|e }}">
+                        {% elseif var.type == 'boolean' %}
+                            <input name="{{ name }}" type="checkbox" {% if var.value %}checked{% endif %}>
+                        {% else %}
+                            ?
+                        {% endif %}
+
+                        {% if var.type in ['integer', 'boolean'] %}
+                            <small>{% trans %}'Default:{% endtrans %} {{ var.default }}</small>
+                        {% endif %}
+                    </td>
+
+                    <td class="minimal">
+                        {{ var.type|e }}
+                    </td>
+
+                    <td style="word-wrap:break-word;width:50%">
+                        {{ var.comment|join(' ') }}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <ul style="padding:0;text-align:center;list-style:none">
+        <li><input name="save" type="submit" value="{% trans %}Save changes{% endtrans %}"></li>
+    </ul>
+</form>

@@ -1,0 +1,37 @@
+﻿h1{
+    padding-top: 10px;
+}
+.imageofnow {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 300px;
+    margin-top: -40px;
+}
+.description {
+    text-align: center;
+    font-weight: bolder;
+ }
+div.ban:nth-child(3) ul {
+     columns: 2;
+  -webkit-columns: 2;
+  -moz-columns: 2;
+    float: left;
+    display: table-cell;
+    white-space: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+.boardlinksurl {
+    float: left;
+    margin-right: 100px;
+}
+@media (max-width: 600px) {
+    div.ban:nth-child(3) ul {
+    float: left;
+    columns: 1;
+}
+}
+fieldset {
+    border: 0;
+}

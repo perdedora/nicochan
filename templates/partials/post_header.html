@@ -1,0 +1,30 @@
+{% if not post.shadow %}
+    <input type="checkbox" class="delete" name="delete_{{ post.id }}" id="delete_{{ post.id }}" />
+{% endif %}
+<label for="delete_{{ post.id }}">
+    {% include 'post/subject.html' %}
+    {% include 'post/name.html' %}
+    {% include 'post/ip.html' %}
+    {% include 'post/flag.html' %}&nbsp;
+    {% include 'post/time.html' %}&nbsp;
+</label>
+{% include 'post/poster_id.html' %}&nbsp;
+<a class="post_no highlight-link" data-cite="{{ post.id }}" href="{{ post.link('', isnoko50 ? '50' : false) }}">No.</a>
+<a class="post_no cite-link" data-cite="{{ post.id }}" href="{{ post.link('q', isnoko50 ? '50' : false) }}">{{ post.id }}</a>
+
+{% if config.allow_delete %}
+    <a class="delete_post" target="_blank" href="/delete.php?board={{ board.uri|url_encode }}&post={{ post.id|url_encode }}&nf={{ post.num_files|url_encode }}&format=html" title="{% trans %}Delete Post{% endtrans %}">
+        <i class="fa fa-trash"></i>
+    </a>
+{% endif %}
+<a class="report_post" target="_blank" href="/report.php?board={{ board.uri|url_encode }}&post={{ post.id|url_encode }}&format=html" title="{% trans %}Report Post{% endtrans %}">
+    <i class="fa fa-flag"></i>
+</a>
+{% if mod %}
+    <div class="hamburger-menu-container">
+        <a class="mod-controls" href="#">
+            <i class="fa fa-gear clickable-gear"></i>
+        </a>
+        {% include 'post/post_controls.html' %}
+    </div>
+{% endif %}

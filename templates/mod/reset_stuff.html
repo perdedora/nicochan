@@ -1,0 +1,20 @@
+<form action="?/reset_stuff" method="post" style="width:300px;margin:auto">
+    <input type="hidden" name="token" value="{{ security_token }}">
+    <ul>
+        <li>
+            <input type="checkbox" name="reset_reports" id="reset_reports"/>
+            <label for="reset_reports">{% trans %}Reset reports{% endtrans %}</label>
+        </li>
+        <li>
+            <input type="checkbox" name="reset_appeals" id="reset_appeals"/>
+            <label for="reset_appeals">{% trans %}Reset ban appeals{% endtrans %}</label>
+        </li>
+        <li>
+            <input type="checkbox" name="reset_shadow" id="reset_shadow"/>
+            <label for="reset_shadow">{% trans %}Delete all Shadow Deleted posts{% endtrans %}</label>
+        </li>
+    </ul>
+    <p style="text-align:center">
+        <input type="submit" value="{% trans %}Submit{% endtrans %}" name="submit">
+    </p>
+</form>

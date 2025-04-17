@@ -1,0 +1,12 @@
+{% if post.mod and post.mod|hasPermission(config.mod.show_ip, board.uri) %}
+    <span class="mod-ip">
+        &nbsp;
+        [<a class="ip-link" style="margin:0;" href="?/user_posts/ip/{{ post.ip }}">{{ post.ip_human_readable }}</a>]
+        <span class="toggle-container">
+            <i class="fa fa-arrow-right arrow-indicator" style="cursor: pointer;"></i>
+            <span class="hide-default hidden">
+                [<a class="ip-link" title="Pesquisar Cookies" style="margin:0;" href="?/user_posts/passwd/{{ post.password }}">{{ post.password[:15] }}</a>]
+            </span>
+        </span>
+    </span>
+{% endif %}

@@ -1,0 +1,27 @@
+<link rel='stylesheet' href='stylesheets/ag-grid-magali.css?v={{ config.resource_version ?? resource_version }} '>
+<script src='js/ag-grid/ag-grid.js?v={{ config.resource_version ?? resource_version }}'></script>
+<script src='js/ag-grid/pt_BR.js?v={{ config.resource_version ?? resource_version }}'></script>
+<script src='js/strftime.min.js?v={{ config.resource_version ?? resource_version }}'></script>
+<link rel="preload" as="script" href='js/mod/ban-list.js?v={{ config.resource_version ?? resource_version }}'>
+<script src='js/mod/ban-list.js?v={{ config.resource_version ?? resource_version }}'></script>
+
+<form action="?/bans" method="post" class="banform">
+    {{ token ? "<input type='hidden' name='token' value='" ~ token ~ "'>"  : '' }}
+    <div class='banlist-opts'>
+        <div class='checkboxes' style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <div>
+                {% if mod %}
+                    <label style="border: 1px dashed #000; padding: 4px;">
+                        <input type="checkbox" id="select-all"> {% trans %}Select all bans{% endtrans %}
+                    </label>
+                    <input type="submit" name="unban" id="unban" style="margin-top: 10px;" value="{% trans %}Unban selected{% endtrans %}">
+                {% endif %}
+            </div>
+            <div class='buttons' style="margin-bottom: 5px;">
+                <input type="text" id="search" placeholder="{% trans %}Search{% endtrans %}">
+            </div>
+        </div>
+        <br class='clear'>
+    </div>
+    <div id="banlist" class="ag-theme-custom" data-token="{{ token_json ? token_json : uri_json }}" data-ismod="{{ mod ? 'true' : 'false' }}"></div>
+</form>

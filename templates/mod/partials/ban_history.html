@@ -1,0 +1,90 @@
+<table style="margin-bottom: 10px;">
+	<tr>
+		<th>{% trans %}Status{% endtrans %}</th>
+		<td>
+			{% if config.mod.view_banexpired and ban.expires != 0 and ban.expires < time() %}
+				{% trans %}Expired{% endtrans %}
+			{% else %}
+				{% trans %}Active{% endtrans %}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% trans %}IP{% endtrans %}</th>
+		<td>{{ ban.mask }}</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Cookie{% endtrans %}</th>
+		<td>
+			{% if ban.cookiebanned %}
+				<s style="background-color: #F33">{{ ban.cookie }}</s>
+			{% else %}
+				{{ ban.cookie }}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Reason{% endtrans %}</th>
+		<td>
+			{% if ban.reason %}
+				{{ ban.reason }}
+			{% else %}
+				<em>{% trans %}no reason{% endtrans %}</em>
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Board{% endtrans %}</th>
+		<td>
+			{% if ban.board %}
+				{{ config.board_abbreviation|format(ban.board) }}
+			{% else %}
+				<em>{% trans %}all boards{% endtrans %}</em>
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Set{% endtrans %}</th>
+		<td>{{ ban.created|strftime }}</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Expires{% endtrans %}</th>
+		<td>
+			{% if ban.expires %}
+				{{ ban.expires|strftime }}
+			{% else %}
+				<em>{% trans %}never{% endtrans %}</em>
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Seen{% endtrans %}</th>
+		<td>
+			{% if ban.seen %}
+				{% trans %}Yes{% endtrans %}
+			{% else %}
+				{% trans %}No{% endtrans %}
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Staff{% endtrans %}</th>
+		<td>
+			{% if ban.username %}
+				<a href="?/new_PM/{{ ban.username|e }}">{{ ban.username|e }}</a>
+			{% else %}
+				<em>{% trans %}deleted?{% endtrans %}</em>
+			{% endif %}
+		</td>
+	</tr>
+	<tr>
+		<th>{% trans %}Appealable{% endtrans %}</th>
+		<td>
+			{% if ban.appealable %}
+				{% trans %}Yes{% endtrans %}
+			{% else %}
+				{% trans %}No{% endtrans %}
+			{% endif %}
+		</td>
+	</tr>
+</table>

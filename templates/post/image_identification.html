@@ -1,0 +1,22 @@
+{% if file.thumb != 'file' and config.image_identification %}
+<span class="unimportant image-idn">&nbsp;
+	<span class='image_id'>
+		<br/>
+		{% if config.image_identification_imgops %}
+			<a rel="noreferrer" href="http://imgops.com/{{ config.domain }}{{ config.uri_img }}{{ file.file }}" target="_blank">ImgOps</a>&nbsp;/&nbsp;
+		{% endif %}
+		{% if config.image_identification_exif and file.file|extension == 'jpg' %}
+			<a rel="noreferrer" href="http://exif.int21h.win/?url={{ config.domain }}{{ config.uri_img }}{{ file.file }}" target="_blank">Exif</a>/&nbsp;
+		{% endif %}
+		{% if config.image_identification_google %}
+			<a rel="noreferrer" href="https://www.google.com/searchbyimage?image_url={{ config.domain|url_encode }}{{ config.uri_img|url_encode }}{{ file.file|url_encode }}" target="_blank">Google</a>&nbsp;/
+		{% endif %}
+		{% if config.image_identification_iqdb %}
+			<a rel="noreferrer" href="http://iqdb.org/?url={{ config.domain }}{{ config.uri_img }}{{ file.file }}" target="_blank">iqdb</a>&nbsp;/&nbsp;
+		{% endif %}
+		{% if config.image_identification_yandex %}
+			<a rel="noreferrer" href="https://yandex.com/images/search?url={{ config.domain }}{{ config.uri_img }}{{ file.file }}&rpt=imageview" target="_blank">&nbsp;Yandex</a>
+		{% endif %}
+	</span>
+</span>
+{% endif %}

@@ -1,0 +1,41 @@
+{% set action = new ? '?/new-board' : '?/edit/' ~ board.uri %}
+
+<form action="{{ action }}" method="post">
+    <input type="hidden" name="token" value="{{ token }}">
+    <table>
+        <tr>
+            <th>{% trans %}URI{% endtrans %}</th>
+            <td>
+                {{ not new 
+                    ? config.board_abbreviation|format(board.uri) 
+                    : '/<input size="10" maxlength="255" type="text" name="uri" autocomplete="off">/' 
+                }}
+            </td>
+        </tr>
+        <tr>
+            <th>{% trans %}Title{% endtrans %}</th>
+            <td>
+                <input size="25" type="text" name="title" value="{{ board.title|e }}" autocomplete="off">
+            </td>
+        </tr>
+        <tr>
+            <th>{% trans %}Subtitle{% endtrans %}</th>
+            <td>
+                <input size="25" type="text" name="subtitle" value="{{ board.subtitle|e }}" autocomplete="off">
+            </td>
+        </tr>
+    </table>
+
+    <ul style="padding:0;text-align:center;list-style:none">
+        <li>
+            <input type="submit" value="{% if new %}{% trans %}Create board{% endtrans %}{% else %}{% trans %}Save changes{% endtrans %}{% endif %}">
+        </li>
+        {% if not new and mod|hasPermission(config.mod.deleteboard) %}
+            <li>
+                <input name="delete" class="link-confirm" 
+                    data-confirm-message="{% trans %}Are you sure you want to permanently delete this board?{% endtrans %}" type="submit" 
+                    value="{% trans %}Delete board{% endtrans %}">
+            </li>
+        {% endif %}
+    </ul>
+</form>

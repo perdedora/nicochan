@@ -1,0 +1,27 @@
+<div class="report">
+	<hr>
+	<strong>{% trans %}Board{% endtrans %}:</strong> 
+	<a href="?/{{ report.board }}/">{{ config.board_abbreviation|format(report.board) }}</a>
+	<br>
+	<strong>{% trans %}Reason{% endtrans %}:</strong> {{ report.reason }}
+	<br>
+	<strong>{% trans %}Report date{% endtrans %}:</strong> {{ report.time|strftime }}
+	<br>
+	{% if mod|hasPermission(config.mod.show_ip, report.board) %}
+		<strong>{% trans %}Reported by{% endtrans %}:</strong> 
+		<a href="?/user_posts/ip/{{ report.ip }}">{{ report.ip }}</a>
+		<br>
+	{% endif %}
+	{% if mod|hasPermission(config.mod.report_dismiss, report.board) or mod|hasPermission(config.mod.report_dismiss_ip, report.board) %}
+		<hr>
+		{% if mod|hasPermission(config.mod.report_dismiss, report.board) %}
+			<a style="margin-right: 5px;" title="{% trans %}Discard abuse report{% endtrans %}" href="?/reports/{{ report.id }}/dismiss/{{ token }}">{% trans %}Dismiss{% endtrans %}</a>&nbsp;|&nbsp;
+		{% endif %}
+		{% if mod|hasPermission(config.mod.report_dismiss_ip, report.board) %}
+			<a style="margin-right: 5px; margin-left: 5px;" title="{% trans %}Discard all abuse reports by this IP address{% endtrans %}" href="?/reports/{{ report.id }}/dismiss&amp;all/{{ token_all }}">{% trans %}Dismiss+{% endtrans %}</a>&nbsp;|&nbsp; 
+		{% endif %}
+		{% if mod|hasPermission(config.mod.report_dismiss_post, report.board) %}
+			<a style="margin-right: 5px;" title="{% trans %}Discard all abuse reports for this post{% endtrans %}" href="?/reports/{{ report.id }}/dismiss&amp;post/{{ token_post }}">{% trans %}Dismiss Post{% endtrans %}</a>
+		{% endif %}
+	{% endif %}
+</div>

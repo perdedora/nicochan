@@ -1,0 +1,8 @@
+{% if config.display_flags and post.flag_iso and (not config.display_flags_mod_only or mod) %}
+    &nbsp;<img
+        class="flag{% if config.country_flags_condensed %} flag-{{ post.flag_iso }}{% endif %}"
+        src="{% if config.country_flags_condensed %}{{ config.image_blank }}{% else %}{{ config.uri_flags|format(post.flag_iso) }}{% endif %}"
+        style="{{ post.modifiers['flag style']|default(config.flag_style) }}"
+        {% if post.flag_ext %}alt="{{ post.flag_ext|e }}" title="{{ post.flag_ext|e }}"{% endif %}
+    >
+{% endif %}

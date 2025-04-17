@@ -1,0 +1,40 @@
+<div class="ban">
+    <span style="float:right;padding:2px">
+        {% if not post.reply and thread_id is not defined %}
+            <a href="?/noticeboard/thread/{{ post.id }}" title="{% trans %}View internal thread{% endtrans %}">[{% trans %}Open{% endtrans %}]</a>
+        {% endif %}
+        {% if mod|hasPermission(config.mod.noticeboard_delete) %}
+            <a href="?/noticeboard/delete/{{ post.id }}/{{ post.delete_token }}">[{% trans %}delete{% endtrans %}]</a>
+        {% endif %}
+    </span>
+    
+    <h2 id="{{ post.id }}">
+        <a href="?/noticeboard#{{ post.id }}">No.{{ post.id }}</a>&nbsp;
+		{% if post.subject %}
+            {{ post.subject|e }}
+        {% else %}
+            <em>{% trans %}no subject{% endtrans %}</em>
+        {% endif %}
+        <small class="unimportant">
+            &nbsp;&mdash; {% trans %}by{% endtrans %}&nbsp;
+		    {% if post.username %}
+                <a href="?/new_PM/{{ post.username|e }}">{{ post.username|e }}</a>
+            {% else %}
+                <em>{% trans %}deleted?{% endtrans %}</em>
+            {% endif %}
+            &nbsp;{% trans %}at{% endtrans %}&nbsp;
+            {{ post.time|strftime }}
+        </small>
+    </h2>
+    
+    <p>{{ post.body }}</p>
+
+    {% set replies = post.qtd_replies %}
+    {% if thread_id is not defined %}
+        {% if not post.reply and replies >= 1 %}
+            <a href="?/noticeboard/thread/{{ post.id }}" title="{% trans %}View internal thread{% endtrans %}">[{% trans %}See 1 reply{% plural replies %}See {{ count }} replies{% endtrans %}]</a>
+        {% elseif not post.reply %}
+            <a href="?/noticeboard/thread/{{ post.id }}" title="{% trans %}View internal thread{% endtrans %}">[{% trans %}See thread{% endtrans %}]</a>
+    {% endif %}
+{% endif %}
+</div>

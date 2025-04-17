@@ -1,0 +1,17 @@
+{% extends 'mod/move_base.html' %}
+
+{% set action = 'move' %}
+{% set id_label = 'Thread ID' %}
+{% set thread_instruction = '' %}
+{% set submit_label %}{% trans %}Move Thread{% endtrans %}{% endset %}
+{% set exclude_board = true %}
+
+{% block extra_fields %}
+    <tr>
+        <th>{% trans %}Leave shadow thread{% endtrans %}</th>
+        <td>
+            <input type="checkbox" name="shadow" checked>
+            <span class="unimportant">({% trans %}locks thread; replies to it with a link.{% endtrans %})</span>
+        </td>
+    </tr>
+{% endblock %}

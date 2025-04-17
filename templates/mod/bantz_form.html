@@ -1,0 +1,37 @@
+{% set action = post and board 
+    ? '?/' ~ board ~ '/bantz/' ~ post 
+    : '?/bantz' %}
+
+<form action="{{ action }}" method="post">
+    <input type="hidden" name="token" value="{{ token }}">
+    {% if redirect %}
+        <input type="hidden" name="redirect" value="{{ redirect|e }}">
+    {% endif %}
+    
+    <table>
+        {% if post and board %}
+            <tr>
+                <th>
+                    <label for="message">{% trans %}Message{% endtrans %}</label>
+                </th>
+                <td>
+                    <input type="text" name="message" id="message" size="35" maxlength="200" value="{{ config.mod.default_bantz_message|e }}"> 
+                    <span class="unimportant">{% trans %}public; attached to post{% endtrans %}</span>
+                </td>
+            </tr>
+            <tr>
+                <th>
+                    <label for="text_size">{% trans %}Text Size{% endtrans %}</label>
+                </th>
+                <td>
+                    <input type="text" name="text_size" id="text_size" size="5" maxlength="3" value="{{ config.mod.bantz_message_default_size }}"> 
+                    <span class="unimportant">{% trans %}size of bantz text{% endtrans %}</span>
+                </td>
+            </tr>
+        {% endif %}
+        <tr>
+            <td></td>
+            <td><input name="new_bantz" type="submit" value="{% trans %}New Bantz{% endtrans %}"></td>
+        </tr>
+    </table>
+</form>

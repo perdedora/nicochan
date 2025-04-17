@@ -1,0 +1,47 @@
+<link rel="preload" as="style" type="text/css" fetchpriority="high" href="{{ config.url_stylesheet }}?v={{ config.resource_version }}">
+<link rel="stylesheet" type="text/css" href="{{ config.url_stylesheet }}?v={{ config.resource_version }}">
+{% if config.url_favicon %}
+    <link rel="shortcut icon" href="{{ config.url_favicon }}">
+{% endif %}
+{% if config.default_stylesheet.1 is not empty %}
+    <link rel="stylesheet" type="text/css" id="stylesheet" href="{{ config.uri_stylesheets }}{{ config.default_stylesheet[1] }}?v={{ config.resource_version }}">
+{% endif %}
+{% if config.font_awesome %}
+    <link rel="stylesheet" href="{{ config.root }}{{ config.font_awesome_css }}?v={{ config.resource_version }}">
+{% endif %}
+{% if config.country_flags_condensed %}
+    <link rel="stylesheet" href="{{ config.root }}{{ config.country_flags_condensed_css }}?v={{ config.resource_version }}">
+{% endif %}
+
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+{% if config.meta_description %}
+    <meta name="description" content="{{ config.meta_description }}">
+{% endif %}
+{% if config.meta_keywords %}
+    <meta name="keywords" content="{{ config.meta_keywords }}">
+{% endif %}
+
+{% if mod %}
+    <link rel="stylesheet" href="{{ config.uri_stylesheets }}mod/menu.css?v={{ config.resource_version }}">
+    <script type="text/javascript" src="js/expand-filename.js?v={{ config.resource_version }}"></script>
+    <script type="text/javascript" src="js/mod/mod-scripts.js?v={{ config.resource_version }}"></script>
+{% endif %}
+
+{% if not nojavascript %}
+    <link rel="preload" as="script" type="text/javascript" fetchpriority="high" href="{{ config.url_javascript }}?v={{ config.resource_version }}">
+    {% if not config.additional_javascript_compile %}
+        {% for javascript in config.additional_javascript %}
+            <script type="text/javascript" src="{{ config.additional_javascript_url }}{{ javascript }}"></script>
+        {% endfor %}
+    {% endif %}
+<script type="text/javascript" src="{{ config.url_javascript }}?v={{ config.resource_version }}"></script>
+{% endif %}
+
+{% if config.captcha.provider == 'hcaptcha' %}
+    <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
+{% endif %}
+
+{% if config.captcha.provider == 'yandexcaptcha' %}
+    <script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>
+{% endif %}

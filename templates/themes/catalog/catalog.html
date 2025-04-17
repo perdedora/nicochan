@@ -1,0 +1,133 @@
+{% apply spaceless %}
+<!doctype html>
+<html>
+<head>
+	{% include 'header.html' %}
+	<script src="{{ config.root }}js/catalog.js?v={{ config.resource_version }}" defer></script>
+	<script src="{{ config.root }}js/catalog-search.js?v={{ config.resource_version }}" defer></script>
+	<script src="{{ config.root }}js/catalog-updater.js?v={{ config.resource_version }}" defer></script>
+	<title>{{ board.uri }} - {% trans %}Catalog{% endtrans %}</title>
+</head>
+<body class="8chan vichan {{ mod ? 'is-moderator' : 'is-not-moderator' }} theme-catalog active-catalog" data-stylesheet="{{ config.default_stylesheet.1|default('default') }}">
+	<div class="bar top">
+		{{ boardlist.top }}
+	</div>
+	<a name="top"></a>
+	<span id="active-page" data-page="catalog"></span>
+	{% if mod %}{% include 'partials/reports_count.html' %}{% endif %}
+	{% include 'partials/header.html' %}
+	{% if not no_post_form %}
+		{% include 'post_form.html' %}
+	{% endif %}
+	<br/>
+
+	<span style="margin-left: 10px;">{% trans %}Sort by{% endtrans %}: </span>
+	<select id="sort_by" style="display: inline-block">
+		<option selected value="bump:desc">{% trans %}Bump order{% endtrans %}</option>
+		<option value="time:desc">{% trans %}Creation date{% endtrans %}</option>
+		<option value="reply:desc">{% trans %}Reply count{% endtrans %}</option>
+		<option value="random:desc">{% trans %}Random{% endtrans %}</option>
+	</select>
+
+	<span style="margin-left: 10px;">{% trans %}Image size{% endtrans %}: </span>
+	<select id="image_size" style="display: inline-block">
+		<option value="vsmall">{% trans %}Very small{% endtrans %}</option>
+		<option selected value="small">{% trans %}Small{% endtrans %}</option>
+		<option value="large">{% trans %}Large{% endtrans %}</option>
+	</select>
+
+	<a id="unimportant" style="float: right" href="{{ mod ? '?/' ~ board.uri ~ '/' ~ config.catalog_link : './' ~ config.catalog_link }}">[{% trans %}Reload{% endtrans %}]</a>
+
+	{% if not isukko %}
+		{% if config.archive.threads %}
+			&nbsp;<a id="unimportant" style="float:right" href="{{ mod ? config.file_mod ~ '?/' : config.root }}{{ board.dir }}{{ config.dir.archive }}">[{% trans %}Archive{% endtrans %}]</a>
+		{% endif %}
+		{% if config.feature.threads and config.feature.link_post_page %}
+			&nbsp;<a id="unimportant" style="float: right" href="{{ mod ? config.file_mod ~ '?/' : config.root }}{{ board.dir }}{{ config.dir.featured }}">[{% trans %}Featured{% endtrans %}]</a>
+		{% endif %}
+	{% endif %}
+
+	<div class="threads">
+		<div id="Grid">
+			{% for post in recent_posts %}
+				<div class="mix"
+					data-reply="{{ post.reply_count }}"
+					data-bump="{{ post.bump }}"
+					data-time="{{ post.time }}"
+					data-id="{{ post.id }}"
+					data-sticky="{{ post.sticky ? 'true' : 'false' }}"
+					data-locked="{{ post.locked ? 'true' : 'false' }}"
+				>
+					<div class="thread grid-li grid-size-small">
+						<a href="{{ post.link }}">
+							{% if post.youtube %}
+								<img src="//img.youtube.com/vi/{{ post.youtube }}/0.jpg" data-fullimage="//img.youtube.com/vi/{{ post.youtube }}/0.jpg"
+							{% else %}
+								<img src="{{ post.file }}" data-fullimage="{{ post.orig_file }}"
+							{% endif %}
+								id="img-{{ post.id }}" data-subject="{{ post.subject|e }}" data-name="{{ post.name|e }}" data-muhdifference="{{ post.muhdifference }}" class="{{ post.board }} thread-image" title="{{ post.bump|strftime(config.catalog_date) }}" {% if config.content_loading_lazy %} loading="lazy" {% endif %}>
+						</a>
+						<div class="replies">
+							<strong><span class="catalog-help" title="{% trans %}(R)eply / (I)mages / (P)age{% endtrans %}">R: {{ post.reply_count }} / I: {{ post.image_count }} / P: {{ (loop.index // config.threads_per_page) + 1 }}</span></strong>
+
+							{% if post.sticky %}
+								{% if config.font_awesome %}
+									<i class="fa fa-thumb-tack" title="{% trans %}Sticky{% endtrans %}"></i>
+								{% else %}
+									<img class="icon" title="{% trans %}Sticky{% endtrans %}" src="{{ config.image_sticky }}" alt="{% trans %}Sticky{% endtrans %}" />
+								{% endif %}
+							{% endif %}
+							{% if post.locked %}
+								{% if config.font_awesome %}
+									<i class="fa fa-lock" title="{% trans %}Locked{% endtrans %}"></i>
+								{% else %}
+									<img class="icon" title="{% trans %}Locked{% endtrans %}" src="{{ config.image_locked }}" alt="{% trans %}Locked{% endtrans %}" />
+								{% endif %}
+							{% endif %}
+							{% if post.sage and (config.mod.view_bumplock < 0 or (post.mod and post.mod|hasPermission(config.mod.view_bumplock, board.uri))) %}
+								{% if config.font_awesome %}
+									<i class="fa fa-anchor" title="{% trans %}Bumplocked{% endtrans %}"></i>
+								{% else %}
+									<img class="icon" title="{% trans %}Bumplocked{% endtrans %}" src="{{ config.image_bumplocked }}" alt="{% trans %}Bumplocked{% endtrans %}" />
+								{% endif %}
+							{% endif %}
+							{% if post.cycle %}
+								{% if config.font_awesome %}
+									<i class="fa fa-refresh" title="{% trans %}Cyclical{% endtrans %}"></i>
+								{% else %}
+									<img class="icon" title="{% trans %}Cyclical{% endtrans %}" src="{{ config.image_sticky }}" alt="{% trans %}Cyclical{% endtrans %}" />
+								{% endif %}
+							{% endif %}
+							<div style="text-align: center; word-break: break-word;">
+								{% if post.noko %}
+									{{ post.noko }}<br/>
+								{% endif %}
+								{% if isukko %}
+									<span><em>Board: /{{ post.board }}/</em></span>
+								{% endif %}
+							</div>
+
+							{% if post.subject %}
+								<p class="intro">
+									<span class="subject">{{ post.subject|e }}</span>
+								</p>
+							{% else %}
+								<br />
+							{% endif %}
+
+							{{ post.body }}
+						</div>
+					</div>
+				</div>
+			{% endfor %}
+		</div>
+	</div>
+
+	<a href="#top" class="elevadorCima"/>△</a>
+	<hr/>
+	<a name="bottom"></a>
+	<a href="#bottom" class="elevadorBaixo"/>▽</a>
+	{% include 'footer.html' %}
+</body>
+</html>
+{% endapply %}

@@ -1,0 +1,13 @@
+{% include 'mod/partials/noticeboard_postform.html' %}
+
+{% for post in noticeboard %}
+	{% include 'mod/partials/noticeboard_post.html' %}
+{% endfor %}
+
+{% if count > noticeboard|length %}
+	<p class="unimportant" style="text-align:center;word-wrap:break-word">
+		{% for i in range(0, (count - 1) // config.mod.noticeboard_page) %}
+			<a href="?/noticeboard/{{ i + 1 }}">[{{ i + 1 }}]</a>
+		{% endfor %}
+	</p>
+{% endif %}

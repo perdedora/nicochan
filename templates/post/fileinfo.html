@@ -1,0 +1,51 @@
+{% set shadow = post.shadow %}
+{% set archive = post.archive %}
+
+{% if shadow %}
+    {% set uri_img = config.uri_shadow_img %}
+    {% set uri_thumb = config.uri_shadow_thumb %}
+{% elseif archive %}
+    {% set uri_img = config.uri_archive_img %}
+    {% set uri_thumb = config.uri_archive_thumb %}
+{% else %}
+    {% set uri_img = config.uri_img %}
+    {% set uri_thumb = config.uri_thumb %}
+{% endif %}
+
+    <div class="files">
+        {% if post.embed %}
+            {{ post.embed }}
+        {% endif %}
+        {% for index, file in post.files %}
+            <div class="file{{ post.num_files > 1 ? ' multifile' }}" style="{{ post.num_files > 1 ? 'width:' ~ (file.thumbwidth + 40) ~ 'px' }}">
+                {% if file.file == 'deleted' or file.thumb == 'deleted' %}
+                    <img class="post-image deleted" src="{{ config.root ~ config.image_deleted }}" style="width: 150px; height: auto"/>
+                {% else %}
+                    <p class="fileinfo">
+                        {% trans %}File:{% endtrans %}<a class="download-image-icon" href="{{ uri_img ~ file.file }}" download="{{ file.file_unix ~ '.' ~ file.extension }}" data-unix-filename="{{ file.file_unix ~ '.' ~ file.extension }}" data-new-filename="{{ file.file }}"><i class="fa fa-download"></i></a>
+                        <a class="file-url" href="{{ uri_img }}{{ file.file }}">{{ file.file }}</a>
+                        <span class="unimportant fileinfo-desktop">
+                            &nbsp;
+                            ({{ file.size|filesize }}{{ file.width and file.height ? ', ' ~ file.width ~ 'x' ~ file.height ~ (config.show_ratio ? ', ' ~ ratio(file.width, file.height) : '') : '' }}
+                            {% if (config.show_filename and file.filename) or (post.mod|hasPermission(config.mod.show_filename) and file.filename) %}
+                            <span id="f">
+                                ,
+								<a class="post-filename" href="{{ uri_img ~ file.file|e|bidi_cleanup }}"
+                                {{ file.filename|length > config.max_filename_display ? 'data-truncate="true"' : '' }}
+                                download="{{ file.filename|e|bidi_cleanup }}" title="{% trans %}Save as original filename{% endtrans %}">
+                                {{ file.filename|length > config.max_filename_display ? file.filename|truncate_filename(config.max_filename_display)|e|bidi_cleanup : file.filename|e|bidi_cleanup }}
+                                </a>
+                            </span>
+                            {% endif %})
+                        </span>
+                        <span class="unimportant fileinfo-mobile">
+                            ({{ file.size|filesize }})
+                        </span>
+                        {% include "post/image_identification.html" %}
+                        {% include "post/file_controls.html" with {'file': file, 'index': index} %}
+                    </p>
+                    {% include "post/image.html" with {'shadow': shadow, 'post': file, 'uri_img': uri_img} %}
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>

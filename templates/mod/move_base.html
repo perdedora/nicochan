@@ -1,0 +1,38 @@
+<form action="?/{{ board }}/{{ action }}/{{ post }}" method="post" id="move-form">
+    <input type="hidden" name="token" value="{{ token }}">
+    <table>
+        <tr>
+            <th>{{ id_label }}</th>
+            <td>&gt;&gt;&gt;{{ config.board_abbreviation|format(board) }}{{ post }}</td>
+        </tr>
+        {% block extra_fields %}{% endblock %}
+        <tr>
+            <th>{% trans %}Target board{% endtrans %}</th>
+            <td>
+                <ul style="list-style:none;padding:0">
+                    {% for targetboard in boards %}
+                        {% if not exclude_board or targetboard.uri != board %}
+                            <li>
+                                <input type="radio" name="board" value="{{ targetboard.uri }}" id="ban-board-{{ targetboard.uri }}" {{ boards|length == 2 ? 'checked' : '' }}>
+                                <label style="display:inline" for="ban-board-{{ targetboard.uri }}">
+                                    {{ config.board_abbreviation|format(targetboard.uri) }} - {{ targetboard.title|e }}
+                                </label>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </td>
+        </tr>
+        <tr>
+            <th>{% trans %}Target thread{% endtrans %}</th>
+            <td>
+                <p>{{ thread_instruction }}</p>
+                <input type="text" name="target_thread"/>
+            </td>
+        </tr>
+    </table>
+
+    <ul style="padding:0;text-align:center;list-style:none">
+        <li><input type="submit" name="btnSubmit" value="{{ submit_label }}"></li>
+    </ul>
+</form>

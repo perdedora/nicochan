@@ -1,0 +1,58 @@
+<p style="text-align: center">
+	<a id="unimportant" href="index_legacy.html">[Arquivo Legacy]</a><br/>
+	<strong>
+		{% trans %}Displaying{% endtrans %} {{ thread_count }} {% trans %}expired threads{% endtrans %}
+		{% if config.archive.lifetime %} {% trans %}from the past{% endtrans %} {{ config.archive.lifetime }}{% endif %}
+	</strong>
+	<br/>
+</p>
+
+<input type="text" id="search-input" placeholder="{% trans %}Search{% endtrans %}..." 
+	style="margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;">
+<table id="archive-list" class="archive-list modlog tablesorter">
+	<thead>
+		<tr>
+			<th width='80px'>{% trans %}Post #{% endtrans %}</th>
+			<th>{% trans %}Snippet{% endtrans %}</th>
+			<th width='50px'>&nbsp;</th>
+		</tr>
+	</thead>
+	<tbody>
+		{% for thread in archive %}
+			<tr>
+				<td data-sort-value="{{ thread.thread_id }}">{{ thread.thread_id }}</td>
+				<td data-sort-value="{{ thread.snippet|e('html_attr') }}">{{ thread.snippet }}</td>
+				<td><a href="{{ thread.archived_url }}">[{% trans %}View{% endtrans %}]</a></td>
+			</tr>
+		{% endfor %}
+	</tbody>
+</table>
+
+{% if pagination and pagination.total > 1 %}
+    <div class="pagination" style="text-align: center; margin-top: 1em;">
+        {% for page in 1..pagination.total %}
+            {% if page == pagination.current %}
+                <span style="padding: 0 5px; font-weight: bold;">[{{ page }}]</span>
+            {% else %}
+                <a style="padding: 0 5px;" href="
+				{% if mod %}
+					{% if page == 1 %}
+						?/{{ board.uri }}/archive/
+					{% else %}
+						?/{{ board.uri }}/archive/{{ page }}
+					{% endif %}
+				{% else %}
+					{% if page == 1 %}
+						./
+					{% else %}
+						{{ page }}
+					{% endif %}
+				{% endif %}">
+                    [{{ page }}]
+                </a>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endif %}
+
+<script src="/js/archive.js?v={{ config.resource_version }}" defer></script>

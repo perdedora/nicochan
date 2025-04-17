@@ -1,0 +1,11 @@
+{% include 'mod/partials/noticeboard_postform.html' with { 'thread' : thread_id } %}
+
+<h2 style="text-align:center">{% trans %}Thread{% endtrans %}</h2>
+{% for post in thread %}
+    {% include 'mod/partials/noticeboard_post.html' with { 'post' : post } %}
+{% endfor %}
+<hr>
+<h2 style="text-align:center">{% trans %}Replies{% endtrans %}</h2>
+{% for post in reply %}
+    {% include 'mod/partials/noticeboard_post.html' with { 'post' : post } %}
+{% endfor %}

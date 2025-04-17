@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    
+    {% include 'header.html' %}
+
+    {% set meta_subject = config.thread_subject_in_title and thread.subject
+        ? thread.subject|e
+        : thread.body_nomarkup|remove_modifiers|remove_markup|e[:256] %}
+
+    <meta name="description" content="{{ board.url }} - {{ board.title|e }} - {{ meta_subject }}">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="{{ meta_subject }}">
+    <meta name="twitter:description" content="{{ thread.body_nomarkup|remove_modifiers|e }}">
+    {% if thread.files.0.thumb is defined %}
+        <meta name="twitter:image" content="{{ config.domain }}/{{ config.dir.media }}{{ thread.files.0.thumb }}">
+    {% endif %}
+
+    <meta property="og:title" content="{{ meta_subject }}">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="{{ config.domain }}/{{ board.uri }}/{{ config.dir.res }}{{ thread.id ~ '.html' }}">
+    {% if thread.files[0].thumb is defined %}
+        <meta property="og:image" content="{{ config.domain }}/{{ config.dir.media }}{{ thread.files.0.thumb }}">
+    {% endif %}
+    <meta property="og:description" content="{{ thread.body_nomarkup|remove_modifiers|e }}">
+    {% if isnoko50 %}
+        <meta name="robots" content="noindex">
+    {% endif %}
+
+    <title>{{ board.url }} - {{ meta_subject }}</title>
+</head>
+<body class="8chan vichan {{ mod ? 'is-moderator' : 'is-not-moderator' }} active-thread" data-stylesheet="{{ config.default_stylesheet.1|default('default') }}">
+    <div class="bar top">
+        {{ boardlist.top }}
+    </div>
+    <a name="top"></a>
+    <span id="active-page" data-page="thread"></span>
+
+    {% if pm %}
+        {% include 'partials/top_notice.html' %}
+    {% endif %}
+
+    {% if config.url_banner %}
+        {% include 'partials/banner.html' %}
+    {% endif %}
+
+    {% include 'partials/header.html' %}
+
+    <div class="banner">{% trans %}Posting mode: Reply{% endtrans %}</div>
+
+    {{ config.ad.top }}
+
+    {% if not thread.archive %}
+        {% include 'post_form.html' %}
+    {% endif %}
+
+    {% if config.global_message %}
+        {% include 'partials/global_message.html' %}
+    {% endif %}
+    {% if mod %}
+        {% include 'partials/reports_count.html' %}
+    {% endif %}
+    <hr />
+    <form name="postcontrols" action="{{ config.post_url }}" method="post">
+        <input type="hidden" name="board" value="{{ board.uri }}">
+        {% if mod %}
+            <input type="hidden" name="mod" value="1">
+        {% endif %}
+        {% include 'partials/buttons.html' %}
+        <hr />
+        {{ body }}
+        <div id="thread-interactions">
+            <span id="thread-links">
+                {% include 'partials/buttons.html' with { bottom: true } %}
+            </span>
+
+            <span id="thread-quick-reply">
+                <a id="link-quick-reply" href="#">[{% trans %}Post a Reply{% endtrans %}]</a>
+            </span>
+            <br><br>
+            {% include 'partials/report_delete.html' %}
+        </div>
+
+        <div class="clearfix"></div>
+    </form>
+    <a href="#top" class="elevadorCimaTh elevador">△</a>
+
+    <a name="bottom"></a>
+    <a href="#bottom" class="elevadorBaixo elevador">▽</a>
+    {{ boardlist.bottom }}
+    <br>
+
+    <div class="center">
+        {{ config.ad.bottom }}
+    </div>
+
+    {% include 'footer.html' %}
+</body>
+</html>

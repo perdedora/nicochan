@@ -1,0 +1,34 @@
+<a href="
+    {{ post.file|extension in ['webm', 'mp4', 'mp3', 'ogg'] 
+        ? config.root ~ 'player.php?v=' ~ uri_img ~ post.file ~ (config.show_filename ? '&amp;t=' ~ post.filename|e('url') : '')
+        : uri_img ~ post.file }}"
+   target="_blank"
+   class="{{ post.thumb == 'file' or post.modifiers['is_file'] == '1' or post.filename|extension in ['webm', 'mp4', 'mp3', 'ogg'] ? 'file' : '' }}"
+>
+    {% if post.thumb|extension in ['webm', 'mp4'] %}
+        <video class="post-image" 
+               src="{{ uri_img }}{{ post.thumb }}" 
+               poster="{{ config.root ~ config.file_thumb|format(config.file_icons[post.filename|extension]|default(config.file_icons.default)) }}"
+               style="width:{{ post.thumbwidth }}px;height:{{ post.thumbheight }}px"
+               {{ config.content_loading_lazy ? 'loading=lazy' : '' }}>
+        </video>
+    {% elseif post.thumb|extension in ['mp3', 'ogg'] %}
+        <img class="post-image"
+             src="{{ post.thumb in ['mp3', 'ogg'] 
+                ? config.root ~ config.file_thumb|format(config.file_icons[post.filename|extension]|default(config.file_icons.default))
+                : post.thumb == 'spoiler' 
+                    ? config.root ~ config.spoiler_image 
+                    : uri_thumb ~ post.thumb }}"
+             style="width:121px;height:121px"
+             {{ config.content_loading_lazy ? 'loading=lazy' : '' }} />
+    {% else %}
+        <img class="post-image"
+             src="{{ post.thumb == 'file' 
+                ? config.root ~ config.file_thumb|format(config.file_icons[post.filename|extension]|default(config.file_icons.default))
+                : post.thumb == 'spoiler' 
+                    ? config.root ~ config.spoiler_image 
+                    : uri_thumb ~ post.thumb }}"
+             style="width:{{ post.thumb == 'spoiler' ? '250' : post.thumbwidth }}px;height:{{ post.thumb == 'spoiler' ? 'auto' : post.thumbheight ~ 'px' }}"
+             {{ config.content_loading_lazy ? 'loading=lazy' : '' }} />
+    {% endif %}
+</a>

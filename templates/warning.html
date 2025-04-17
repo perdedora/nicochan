@@ -1,0 +1,38 @@
+{% apply spaceless %}
+	<div style="width: 420px; height: 180px; background: transparent; position: relative; margin: 0 auto; margin-top: 20px">
+		<img src="../static/error.webp" style="display: block; margin-left: auto; margin-right: auto;" width="auto" height="180">
+	</div>
+	<div class="ban" style="margin-top: 0px;">
+		<h2>{% trans %}You were issued a warning! ;_;{% endtrans %}</h2>
+		{% if warning.reason %}
+			<p>{% trans %}for the following reason:{% endtrans %}</p>
+			<p class="reason">{{ warning.reason }}</p>
+		{% endif %}
+		<p>
+			{% trans %}Your warning was filed on{% endtrans %}&nbsp;
+			<strong>{{ warning.created|strftime(config.ban_date) }}</strong>
+			{% if config.show_modname %}
+				{% trans %}by{% endtrans %}
+				{% if warning.username %}
+					<strong>{{ warning.username }}</strong>
+				{% else %}
+					<em>system</em>
+				{% endif %}
+			{% endif %}
+		</p>
+		{% if not config.bcrypt_ip_addresses %}
+			<p>{% trans %}Your IP address is{% endtrans %} <strong>{{ warning.ip }}</strong>.</p>
+		{% endif %}
+
+		{% if config.warning_page_extra %}
+			<p>{{ config.warning_page_extra }}</p>
+		{% endif %}
+
+		{% if post and config.warning_show_post %}
+			<hr>
+			<p>{% trans %}You were issued a warning for the following post on{% endtrans %} {{ board.url }}:</p>
+			{{ post }}
+			<br>
+		{% endif %}
+	</div>
+{% endapply %}

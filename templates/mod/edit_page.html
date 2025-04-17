@@ -1,0 +1,59 @@
+<div style="text-align: center">
+    <form method="POST">
+        <input name="token" value="{{ token }}" type="hidden">
+        <table>
+            <tr>
+                <th>
+                    {% trans %}Markup method{% endtrans %}
+                    <p class="unimportant">
+                        {% trans %}html allows the following tags:{% endtrans %}<br/>
+                        {{ config.allowed_html }}
+                    </p>
+                    <p class="unimportant">
+                        {% trans %}infinity is the same as what is used in posts.{% endtrans %}
+                    </p>
+                    <p class="unimportant">
+                        {% trans %}This page will not convert between formats, choose it once or do the conversion yourself!{% endtrans %}
+                    </p>
+                </th>
+                <td>
+                    <select name="method">
+                        {% for markup in ['html', 'infinity'] %}
+                            <option value="{{ markup }}" {% if page.type == markup %}selected{% endif %}>
+                                {{ markup }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </td>
+            </tr>
+            <tr>
+                <th>
+                    {% trans %}Page content{% endtrans %}
+                    <br/>
+                    <span class="unimportant">
+                        {% trans %}Page will appear at:{% endtrans %}
+                        {% if board %}
+                            <a href="/{{ board.uri }}/{{ page.name }}.html">
+                                {{ config.domain }}/{{ board.uri }}/{{ page.name }}.html
+                            </a>
+                        {% else %}
+                            <a href="/{{ page.name }}.html">
+                                {{ config.site }}/{{ page.name }}.html
+                            </a>
+                        {% endif %}
+                    </span>
+                </th>
+                <td>
+                    <textarea name="content" style="height: 500px; width: 500px">
+                        {% if content|length == 0 %}
+                            <div class="ban"></div>
+                        {% else %}
+                            {{ content|e }}
+                        {% endif %}
+                    </textarea>
+                </td>
+            </tr>
+        </table>
+        <input type="submit" value="{% trans %}Save page{% endtrans %}">
+    </form>
+</div>

@@ -227,7 +227,7 @@ class ArchiveService {
 			$this->db->updateArchiveStatus($threadData['id'], $threadData['board'], self::STATUS_NOT_ARCHIVED);
 
 			$allIds = $this->getAllIdsFromThread($allThreadData);
-			\dbUpdateCiteLinks($threadData['board'], $allIds, false, self::STATUS_ARCHIVED);
+			\dbUpdateCiteLinks($threadData['board'], $allIds);
 			$this->db->dbUpdateCiteStatus($threadData['board'], $allIds, self::STATUS_NOT_ARCHIVED);
 
 			$res = $this->db->deleteSpecificThread($threadData['id'], $threadData['board']);

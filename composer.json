@@ -1,0 +1,89 @@
+{
+    "name": "perdora/mazuka",
+    "description": "Vichan is a light-weight, fast, highly configurable and user-friendly imageboard software package released under a non-restrictive open-source license. It is written in PHP and has few dependencies.",
+    "type": "project",
+    "config": {
+        "platform": {
+            "php": "8.0"
+        }
+    },
+    "repositories": [
+	    {
+		"type": "vcs",
+		"url": "https://github.com/alex300/securimage"
+	    }
+    ],
+    "require": {
+	"ext-pdo": "*",
+	"ext-gd": "*",
+	"ext-redis": "*",
+	"gettext/gettext": "^5.6",
+    "twig/twig": "^3.11.1",
+    "mrclay/jsmin-php": "~2",
+	"lifo/ip": "^1.0",
+	"phpmyadmin/twig-i18n-extension": "^4.1",
+	"geoip2/geoip2": "^2.13",
+    "dapphp/securimage": "dev-master"
+    },
+    "autoload": {
+        "classmap": ["inc/"],
+        "files": [
+            "inc/bootstrap.php",
+            "inc/display.php",
+            "inc/template.php",
+            "inc/database.php",
+            "inc/events.php",
+            "inc/api.php",
+            "inc/mod/auth.php",
+            "inc/functions.php",
+            "inc/functions/net.php",
+            "inc/functions/ip.php",
+            "inc/functions/format.php",
+            "inc/functions/num.php",
+            "inc/functions/theme.php",
+            "inc/functions/hide.php",
+            "inc/context.php"
+        ]
+    },
+    "license": "MIT",
+    "authors": [
+	{
+            "name": "savetheinternet",
+            "homepage": "https://github.com/savetheinternet"
+        },
+        {
+            "name": "czaks",
+            "homepage": "https://github.com/czaks"
+        },
+        {
+            "name": "ctrlcctrlv",
+            "homepage": "https://github.com/ctrlcctrlv"
+        },
+        {
+            "name": "h00j",
+            "homepage": "https://github.com/h00j"
+        },
+        {
+            "name": "Daniel Saunders",
+            "email": "dsaunders@dansaunders.me"
+        },
+	    {
+	        "name": "fowr",
+	        "email": "weav@anche.no"
+	    }
+    ],
+    "suggest": {
+        "ext-imagick": "Allows the use of ImageMagick for image handling",
+        "ext-openssl": "Allows for enhanced security features through OpenSSL",
+        "ext-apcu": "Allows the use of APCu for cache storage",
+        "ext-redis": "Allows the use of Redis for cache storage",
+        "ext-memcached": "Allows the use of Memcached for cache storage",
+        "ext-xcache": "Allows the use of XCache for cache storage"
+    },
+    "scripts": {
+	 "post-update-cmd": [
+            "rm -rf vendor/dapphp/securimage/captcha.html vendor/dapphp/securimage/example_form.php vendor/dapphp/securimage/example_form.ajax.php vendor/dapphp/securimage/securimage_play.swf vendor/dapphp/securimage/examples/ vendor/dapphp/securimage/audio/* vendor/dapphp/securimage/backgrounds/*",
+            "rm -rf vendor/mrclay/jsmin-php/web/*"
+	 ]
+    }
+}
